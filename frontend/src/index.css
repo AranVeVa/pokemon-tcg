@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F1F4F9] text-gray-800 antialiased font-sans min-h-screen selection:bg-blue-500 selection:text-white;
+  }
+}
+
+/* Card Glow Effects */
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: rotate(25deg);
+  pointer-events: none;
+  animation: shineSweep 4s infinite linear;
+}
+
+@keyframes shineSweep {
+  0% { transform: translate(-100%, -100%) rotate(25deg); }
+  20%, 100% { transform: translate(100%, 100%) rotate(25deg); }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
