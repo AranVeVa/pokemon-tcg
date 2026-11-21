@@ -20,7 +20,7 @@ import {
   Activity,
   ArrowRightLeft
 } from 'lucide-react';
-import { getEffectivenessMultiplier } from '../../../backend/src/data/movesList';
+import { getEffectivenessMultiplier } from '../utils/typeEffectiveness';
 
 // Helper de iconos y colores por tipo de ataque
 const TYPE_STYLES = {
