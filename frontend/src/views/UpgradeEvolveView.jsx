@@ -158,26 +158,34 @@ export default function UpgradeEvolveView({ initialPokemonId = 7 }) {
                         : 'border-gray-200 opacity-60'
                   }`}>
 
-                    {/* Level Pill */}
+                    {/* Level Pill & IV */}
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-mono text-gray-400 font-bold">
                         #{species.id.toString().padStart(3, '0')}
                       </span>
                       {hasCopies && (
-                        <span className="bg-blue-100 text-blue-800 text-xs font-extrabold px-2.5 py-0.5 rounded-full">
-                          Nv. {bestCopy ? bestCopy.level : 1}
-                        </span>
+                        <div className="flex items-center space-x-1">
+                          <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                            IV {bestCopy?.iv_percentage || 85}% ⭐
+                          </span>
+                          <span className="bg-blue-100 text-blue-800 text-xs font-extrabold px-2.5 py-0.5 rounded-full">
+                            Nv. {bestCopy ? bestCopy.level : 1}
+                          </span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Artwork */}
-                    <div className="h-44 flex items-center justify-center p-2 relative">
+                    {/* Animated Showdown Sprite from PokéAPI */}
+                    <div className="h-44 flex items-center justify-center p-2 relative bg-gradient-to-b from-blue-50/50 to-transparent rounded-2xl">
                       <img 
-                        src={species.artwork_url} 
+                        src={hasCopies ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${species.id}.gif` : species.artwork_url} 
                         alt={species.name}
-                        className={`max-h-full object-contain filter drop-shadow-md ${
-                          hasCopies ? 'hover:scale-105 transition-transform' : 'grayscale opacity-40'
+                        className={`max-h-36 object-contain filter drop-shadow-md ${
+                          hasCopies ? 'hover:scale-110 transition-transform' : 'grayscale opacity-40'
                         }`}
+                        onError={(e) => {
+                          e.target.src = species.artwork_url;
+                        }}
                       />
                     </div>
 
@@ -225,6 +233,34 @@ export default function UpgradeEvolveView({ initialPokemonId = 7 }) {
                             style={{ width: `${Math.min(100, ((bestCopy ? bestCopy.atk : species.atk_base) / 190) * 100)}%` }}
                           ></div>
                         </div>
+
+                        {/* Additional Stats: DEF & SPD */}
+                        {hasCopies && bestCopy && (
+                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-200/60 text-[10px] font-bold text-gray-600">
+                            <div className="flex justify-between">
+                              <span>DEF:</span>
+                              <span className="text-emerald-700">{bestCopy.def || 45}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>SPD:</span>
+                              <span className="text-purple-700">{bestCopy.spd || 50}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Distinct Moveset */}
+                        {hasCopies && bestCopy?.moves && (
+                          <div className="pt-1.5 border-t border-gray-200/60 text-[10px] space-y-0.5">
+                            <div className="flex justify-between text-gray-600">
+                              <span>⚡ {bestCopy.moves[0]?.name}</span>
+                              <span className="font-bold">{bestCopy.moves[0]?.power} dmg</span>
+                            </div>
+                            <div className="flex justify-between text-amber-700">
+                              <span>💥 {bestCopy.moves[1]?.name}</span>
+                              <span className="font-bold">{bestCopy.moves[1]?.power} dmg</span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Copias repetidas (Mockup 6) */}
                         {nextForm && (

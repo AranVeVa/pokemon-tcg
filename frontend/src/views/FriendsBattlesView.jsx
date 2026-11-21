@@ -9,13 +9,18 @@ import {
   Shield, 
   CheckCircle2, 
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Zap,
+  Flame,
+  Heart
 } from 'lucide-react';
 import BattleArenaModal from './BattleArenaModal';
 
 export default function FriendsBattlesView() {
   const { user } = useAuth();
   const [friends, setFriends] = useState([]);
+  const [teamCards, setTeamCards] = useState([]);
+  const [selectedLeadCardId, setSelectedLeadCardId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,16 +31,23 @@ export default function FriendsBattlesView() {
   const [activeBattleConfig, setActiveBattleConfig] = useState(null); // { opponentName, battleType }
 
   useEffect(() => {
-    fetchFriends();
+    fetchFriendsAndTeam();
   }, []);
 
-  const fetchFriends = async () => {
+  const fetchFriendsAndTeam = async () => {
     setLoading(true);
     try {
-      const data = await apiRequest('/friends');
-      setFriends(data.friends);
+      const [friendsData, teamData] = await Promise.all([
+        apiRequest('/friends'),
+        apiRequest('/battles/team')
+      ]);
+      setFriends(friendsData.friends);
+      setTeamCards(teamData.team);
+      if (teamData.team.length > 0) {
+        setSelectedLeadCardId(teamData.team[0].user_card_id);
+      }
     } catch (err) {
-      console.error('Error al obtener amigos:', err);
+      console.error('Error al obtener amigos o equipo:', err);
     } finally {
       setLoading(false);
     }
@@ -61,7 +73,7 @@ export default function FriendsBattlesView() {
       setMessage({ text: res.message, type: 'success' });
       setSearchQuery('');
       setSearchResults([]);
-      await fetchFriends();
+      await fetchFriendsAndTeam();
     } catch (err) {
       setMessage({ text: err.message, type: 'error' });
     }
@@ -78,7 +90,7 @@ export default function FriendsBattlesView() {
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Amigos y Retos</h1>
         <p className="text-xs text-gray-500">
-          Agrega entrenadores y desafíalos a duelos amistosos o batallas normales con items en juego.
+          Combates estratégicos por turnos con animaciones de PokéAPI, ataques elementales y cálculo de daño por stats.
         </p>
       </div>
 
@@ -90,6 +102,105 @@ export default function FriendsBattlesView() {
           <span>{message.text}</span>
         </div>
       )}
+
+      {/* ======================================================== */}
+      {/* SELECTOR DE POKÉMON LÍDER DEL EQUIPO CON STATS & ATAQUES */}
+      {/* ======================================================== */}
+      <section className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+          <div>
+            <h3 className="text-sm font-black text-gray-900">Tu Equipo de Combate</h3>
+            <p className="text-xs text-gray-500">Haz clic en una carta para seleccionarla como Pokémon Líder de entrada.</p>
+          </div>
+          <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full self-start">
+            Ataques y Stats únicos tipo Pokémon GO
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {teamCards.map((card) => {
+            const isSelected = card.user_card_id === selectedLeadCardId;
+            const fastMove = card.moves?.[0] || { name: 'Ataque Rápido', power: 12 };
+            const chargedMove = card.moves?.[1] || { name: 'Golpe Cargado', power: 70 };
+
+            return (
+              <div 
+                key={card.user_card_id}
+                onClick={() => setSelectedLeadCardId(card.user_card_id)}
+                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                  isSelected 
+                    ? 'border-blue-500 bg-blue-50/50 shadow-md ring-2 ring-blue-100' 
+                    : 'border-gray-200 bg-gray-50/70 hover:bg-gray-50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[10px] text-gray-400 font-bold">#{card.card_id}</span>
+                    <span className="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                      IV {card.iv_percentage || 85}% ⭐⭐⭐
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <img 
+                      src={card.animated_front_url || card.sprite_url} 
+                      alt={card.name} 
+                      className="w-14 h-14 object-contain filter drop-shadow" 
+                    />
+                    <div>
+                      <h4 className="font-black text-sm text-gray-900 leading-tight">{card.name}</h4>
+                      <span className="text-[11px] font-bold text-blue-600">Nivel {card.level}</span>
+                      <div className="flex gap-1 mt-0.5">
+                        {card.types?.map((t, tidx) => (
+                          <span key={tidx} className="text-[9px] font-bold bg-white px-1.5 py-0.2 rounded border text-gray-600">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats Bar */}
+                  <div className="grid grid-cols-3 gap-1 text-[10px] font-bold text-center mt-3 pt-2 border-t border-gray-200/60 text-gray-600">
+                    <div className="bg-white p-1 rounded">
+                      <span className="text-red-600 block">HP</span>
+                      <span>{card.current_hp}/{card.max_hp}</span>
+                    </div>
+                    <div className="bg-white p-1 rounded">
+                      <span className="text-blue-600 block">ATQ</span>
+                      <span>{card.atk}</span>
+                    </div>
+                    <div className="bg-white p-1 rounded">
+                      <span className="text-emerald-600 block">DEF</span>
+                      <span>{card.def || 45}</span>
+                    </div>
+                  </div>
+
+                  {/* Attacks List */}
+                  <div className="mt-2 space-y-1 text-[11px]">
+                    <div className="flex items-center justify-between bg-white px-2 py-1 rounded border border-gray-100">
+                      <span className="font-semibold text-gray-700">⚡ {fastMove.name}</span>
+                      <span className="font-black text-gray-900">{fastMove.power} dmg</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-2 py-1 rounded border border-gray-100">
+                      <span className="font-semibold text-amber-700">💥 {chargedMove.name}</span>
+                      <span className="font-black text-gray-900">{chargedMove.power} dmg</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2 text-center">
+                  <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+                    isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {isSelected ? '✓ Pokémon Líder Seleccionado' : 'Elegir Líder'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Search Bar (Mockup 9: "Buscar usuarios por nombre...") */}
       <form onSubmit={handleSearch} className="flex gap-2 max-w-xl">
@@ -196,8 +307,8 @@ export default function FriendsBattlesView() {
 
       {/* Explanation Box (Mockup 9 Bottom Box) */}
       <section className="bg-blue-50/60 rounded-2xl p-4 border border-blue-100 text-xs text-gray-600 space-y-1">
-        <p>• <strong className="text-gray-800">Reto amistoso:</strong> otorga menos XP, sin bajas (los Pokémon no quedan debilitados).</p>
-        <p>• <strong className="text-gray-800">Reto normal:</strong> más XP e items, pero tus Pokémon pueden quedar debilitados durante la partida.</p>
+        <p>• <strong className="text-gray-800">Reto amistoso (Sparring):</strong> otorga menos XP, sin bajas permanentes (los Pokémon se restauran automáticamente).</p>
+        <p>• <strong className="text-gray-800">Reto normal (Competitivo):</strong> más XP e items, pero tus Pokémon pueden quedar debilitados durante la partida.</p>
       </section>
 
       {/* Interactive Battle Modal */}
@@ -205,8 +316,9 @@ export default function FriendsBattlesView() {
         <BattleArenaModal
           opponentName={activeBattleConfig.opponentName}
           battleType={activeBattleConfig.battleType}
+          initialCardId={selectedLeadCardId}
           onClose={() => setActiveBattleConfig(null)}
-          onBattleFinished={() => fetchFriends()}
+          onBattleFinished={() => fetchFriendsAndTeam()}
         />
       )}
 

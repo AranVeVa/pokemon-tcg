@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { INTERVALO_SOBRE_MIN, MODO_DEMO } = require('../config');
 const { authenticateToken } = require('../middlewares/auth');
+const { generateMovesForPokemon } = require('../data/movesList');
 
 // Obtener estado del sobre gratuito y datos de la tienda
 router.get('/status', authenticateToken, async (req, res) => {
@@ -126,15 +127,24 @@ router.post('/open-free', authenticateToken, async (req, res) => {
 
     const insertedCards = [];
     for (const card of cards) {
+      const moves = generateMovesForPokemon(card.types, card.name);
+      const iv = Math.floor(70 + Math.random() * 31);
+      const def = Math.round(card.atk_base * 0.85 * (iv / 100));
+      const spd = Math.round((card.hp_base + card.atk_base) * 0.5 * (iv / 100));
+
       const insRes = await client.query(`
-        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk)
-        VALUES ($1, $2, 1, $3, $3, $4)
+        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk, def, spd, iv_percentage, moves)
+        VALUES ($1, $2, 1, $3, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [req.user.id, card.id, card.hp_base, card.atk_base]);
+      `, [req.user.id, card.id, card.hp_base, card.atk_base, def, spd, iv, JSON.stringify(moves)]);
       insertedCards.push({
         ...card,
         userCardId: insRes.rows[0].id,
-        level: 1
+        level: 1,
+        def,
+        spd,
+        iv_percentage: iv,
+        moves
       });
     }
 
@@ -234,15 +244,24 @@ router.post('/buy', authenticateToken, async (req, res) => {
 
     const insertedCards = [];
     for (const card of cards) {
+      const moves = generateMovesForPokemon(card.types, card.name);
+      const iv = Math.floor(70 + Math.random() * 31);
+      const def = Math.round(card.atk_base * 0.85 * (iv / 100));
+      const spd = Math.round((card.hp_base + card.atk_base) * 0.5 * (iv / 100));
+
       const insRes = await client.query(`
-        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk)
-        VALUES ($1, $2, 1, $3, $3, $4)
+        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk, def, spd, iv_percentage, moves)
+        VALUES ($1, $2, 1, $3, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [req.user.id, card.id, card.hp_base, card.atk_base]);
+      `, [req.user.id, card.id, card.hp_base, card.atk_base, def, spd, iv, JSON.stringify(moves)]);
       insertedCards.push({
         ...card,
         userCardId: insRes.rows[0].id,
-        level: 1
+        level: 1,
+        def,
+        spd,
+        iv_percentage: iv,
+        moves
       });
     }
 
@@ -363,15 +382,24 @@ router.post('/claim-daily-premium', authenticateToken, async (req, res) => {
 
     const insertedCards = [];
     for (const card of cards) {
+      const moves = generateMovesForPokemon(card.types, card.name);
+      const iv = Math.floor(70 + Math.random() * 31);
+      const def = Math.round(card.atk_base * 0.85 * (iv / 100));
+      const spd = Math.round((card.hp_base + card.atk_base) * 0.5 * (iv / 100));
+
       const insRes = await client.query(`
-        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk)
-        VALUES ($1, $2, 1, $3, $3, $4)
+        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk, def, spd, iv_percentage, moves)
+        VALUES ($1, $2, 1, $3, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [req.user.id, card.id, card.hp_base, card.atk_base]);
+      `, [req.user.id, card.id, card.hp_base, card.atk_base, def, spd, iv, JSON.stringify(moves)]);
       insertedCards.push({
         ...card,
         userCardId: insRes.rows[0].id,
-        level: 1
+        level: 1,
+        def,
+        spd,
+        iv_percentage: iv,
+        moves
       });
     }
 

@@ -2,18 +2,33 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middlewares/auth');
+const { generateMovesForPokemon, getEffectivenessMultiplier } = require('../data/movesList');
+
+// Helper para URLs de sprites animados oficiales de PokéAPI (Showdown & Gen 5)
+function getAnimatedSprites(pokemonId) {
+  return {
+    front: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${pokemonId}.gif`,
+    back: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/back/${pokemonId}.gif`,
+    fallbackFront: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${pokemonId}.gif`,
+    fallbackBack: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/${pokemonId}.gif`,
+    artwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonId}.png`
+  };
+}
 
 // Obtener estado del equipo para combate y mochila de items
 router.get('/team', authenticateToken, async (req, res) => {
   try {
-    // 1. Obtener Pokémon en el equipo del usuario (o los primeros 3 si no hay marcados)
-    let teamRes = await db.query(`
+    const teamRes = await db.query(`
       SELECT 
         uc.id AS user_card_id,
         uc.level,
         uc.current_hp,
         uc.max_hp,
         uc.atk,
+        COALESCE(uc.def, 50) AS def,
+        COALESCE(uc.spd, 50) AS spd,
+        COALESCE(uc.iv_percentage, 85) AS iv_percentage,
+        uc.moves,
         uc.is_in_team,
         pc.id AS card_id,
         pc.name,
@@ -28,10 +43,24 @@ router.get('/team', authenticateToken, async (req, res) => {
       JOIN pokemon_cards pc ON uc.card_id = pc.id
       WHERE uc.user_id = $1
       ORDER BY uc.is_in_team DESC, uc.level DESC
-      LIMIT 3
+      LIMIT 6
     `, [req.user.id]);
 
-    // 2. Obtener mochila de items (Mockup 10)
+    const enrichedTeam = teamRes.rows.map(card => {
+      const animated = getAnimatedSprites(card.card_id);
+      let moves = card.moves;
+      if (!moves || !Array.isArray(moves) || moves.length === 0) {
+        moves = generateMovesForPokemon(card.types, card.name);
+      }
+      return {
+        ...card,
+        moves,
+        animated_front_url: animated.front,
+        animated_back_url: animated.back
+      };
+    });
+
+    // Mochila de items
     const itemsRes = await db.query(`
       SELECT 
         i.item_key,
@@ -48,7 +77,7 @@ router.get('/team', authenticateToken, async (req, res) => {
     `, [req.user.id]);
 
     res.json({
-      team: teamRes.rows,
+      team: enrichedTeam,
       items: itemsRes.rows
     });
   } catch (error) {
@@ -57,10 +86,15 @@ router.get('/team', authenticateToken, async (req, res) => {
   }
 });
 
-// Iniciar combate contra un oponente (amigo o entrenador)
+// Iniciar combate contra un oponente
 router.post('/start', authenticateToken, async (req, res) => {
   try {
-    const { opponentName = 'Misty_01', battleType = 'normal', opponentCardId = 131 } = req.body;
+    const { 
+      opponentName = 'Misty_01', 
+      battleType = 'normal', 
+      opponentCardId = 131,
+      selectedUserCardId
+    } = req.body;
 
     // Obtener equipo del usuario
     const userCards = await db.query(`
@@ -70,6 +104,10 @@ router.post('/start', authenticateToken, async (req, res) => {
         uc.current_hp,
         uc.max_hp,
         uc.atk,
+        COALESCE(uc.def, 50) AS def,
+        COALESCE(uc.spd, 50) AS spd,
+        COALESCE(uc.iv_percentage, 85) AS iv_percentage,
+        uc.moves,
         pc.id AS card_id,
         pc.name,
         pc.types,
@@ -79,14 +117,13 @@ router.post('/start', authenticateToken, async (req, res) => {
       JOIN pokemon_cards pc ON uc.card_id = pc.id
       WHERE uc.user_id = $1
       ORDER BY uc.is_in_team DESC, uc.level DESC
-      LIMIT 3
+      LIMIT 6
     `, [req.user.id]);
 
     if (userCards.rows.length === 0) {
-      return res.status(400).json({ error: 'No tienes Pokémon en tu equipo para combatir' });
+      return res.status(400).json({ error: 'No tienes cartas en tu colección para combatir' });
     }
 
-    // Si todos están debilitados y es reto normal, avisar que necesita revivirlos
     const readyCards = userCards.rows.filter(c => c.current_hp > 0);
     if (readyCards.length === 0 && battleType === 'normal') {
       return res.status(400).json({ 
@@ -94,11 +131,29 @@ router.post('/start', authenticateToken, async (req, res) => {
       });
     }
 
-    // Datos del rival (por defecto Lapras o el Pokémon elegido)
+    // Carta activa elegida o la primera lista
+    let activeCard = userCards.rows[0];
+    if (selectedUserCardId) {
+      const chosen = userCards.rows.find(c => c.user_card_id === parseInt(selectedUserCardId));
+      if (chosen) activeCard = chosen;
+    } else if (readyCards.length > 0) {
+      activeCard = readyCards[0];
+    }
+
+    // Asegurar que activeCard tenga movimientos
+    if (!activeCard.moves || !Array.isArray(activeCard.moves) || activeCard.moves.length === 0) {
+      activeCard.moves = generateMovesForPokemon(activeCard.types, activeCard.name);
+    }
+    const userAnimated = getAnimatedSprites(activeCard.card_id);
+    activeCard.animated_front_url = userAnimated.front;
+    activeCard.animated_back_url = userAnimated.back;
+
+    // Datos del rival
     const opponentCardRes = await db.query(`
       SELECT * FROM pokemon_cards WHERE id = $1
     `, [opponentCardId || 131]);
     const opponentCard = opponentCardRes.rows[0] || {
+      id: 131,
       name: 'Lapras',
       hp_base: 130,
       atk_base: 85,
@@ -106,24 +161,44 @@ router.post('/start', authenticateToken, async (req, res) => {
       artwork_url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/131.png'
     };
 
-    const opponentHp = battleType === 'normal' ? 100 : 70;
-    const opponentAtk = 40;
+    const oppLevel = battleType === 'normal' ? 14 : 10;
+    const oppMaxHp = Math.round(opponentCard.hp_base * (1 + (oppLevel - 1) * 0.15));
+    const oppAtk = Math.round(opponentCard.atk_base * (1 + (oppLevel - 1) * 0.15));
+    const oppDef = Math.round(oppAtk * 0.8);
+    const oppSpd = Math.round((opponentCard.hp_base + oppAtk) * 0.45);
+    const oppMoves = generateMovesForPokemon(opponentCard.types, opponentCard.name);
+    const oppAnimated = getAnimatedSprites(opponentCard.id);
+
+    const enrichedUserTeam = userCards.rows.map(c => {
+      const anim = getAnimatedSprites(c.card_id);
+      return {
+        ...c,
+        moves: c.moves || generateMovesForPokemon(c.types, c.name),
+        animated_front_url: anim.front,
+        animated_back_url: anim.back
+      };
+    });
 
     res.json({
       battleId: Date.now(),
       opponentName,
       battleType,
-      userTeam: userCards.rows,
-      activeUserCard: readyCards[0] || userCards.rows[0],
+      userTeam: enrichedUserTeam,
+      activeUserCard: activeCard,
       opponent: {
+        id: opponentCard.id,
         name: opponentCard.name,
-        level: battleType === 'normal' ? 14 : 10,
-        currentHp: opponentHp,
-        maxHp: opponentHp,
-        atk: opponentAtk,
+        level: oppLevel,
+        currentHp: oppMaxHp,
+        maxHp: oppMaxHp,
+        atk: oppAtk,
+        def: oppDef,
+        spd: oppSpd,
+        types: opponentCard.types,
+        moves: oppMoves,
         artwork_url: opponentCard.artwork_url,
-        sprite_url: opponentCard.sprite_url,
-        types: opponentCard.types
+        animated_front_url: oppAnimated.front,
+        animated_back_url: oppAnimated.back
       }
     });
   } catch (error) {
@@ -132,7 +207,7 @@ router.post('/start', authenticateToken, async (req, res) => {
   }
 });
 
-// Finalizar combate: registrar resultado, experiencia, monedas, items y actualizar HP si es reto normal
+// Finalizar combate
 router.post('/finish', authenticateToken, async (req, res) => {
   const { battleType, opponentName, result, activeUserCardId, finalUserHp } = req.body;
   const client = await db.pool.connect();
@@ -146,11 +221,10 @@ router.post('/finish', authenticateToken, async (req, res) => {
     let itemDropped = null;
 
     if (battleType === 'normal') {
-      // Reto normal: otorga más XP y posibles items, pero guarda daño/debilitado
-      xpEarned = isWin ? 350 : 80;
+      // Reto normal: mayor recompensa, daño persiste
+      xpEarned = isWin ? 350 : 90;
       coinsEarned = isWin ? 400 : 100;
 
-      // Probabilidad de item al ganar en reto normal
       if (isWin) {
         const itemRoll = Math.random();
         if (itemRoll < 0.40) itemDropped = 'potion_30';
@@ -165,7 +239,6 @@ router.post('/finish', authenticateToken, async (req, res) => {
         `, [req.user.id, itemDropped]);
       }
 
-      // En reto normal, guardar la salud resultante (incluyendo si quedó en 0 / debilitado)
       if (activeUserCardId) {
         const hpToSet = Math.max(0, finalUserHp !== undefined ? finalUserHp : (isWin ? 35 : 0));
         await client.query(`
@@ -175,10 +248,10 @@ router.post('/finish', authenticateToken, async (req, res) => {
         `, [hpToSet, activeUserCardId, req.user.id]);
       }
     } else {
-      // Reto amistoso: otorga menos XP, sin items y los Pokémon NO quedan fuera de combate (se restauran)
-      xpEarned = isWin ? 150 : 40;
-      coinsEarned = isWin ? 150 : 50;
-      // No se modifica current_hp o se restaura al máximo
+      // Reto amistoso: sparring amigable, los Pokémon se restauran al 100%
+      xpEarned = isWin ? 180 : 60;
+      coinsEarned = isWin ? 200 : 60;
+
       if (activeUserCardId) {
         await client.query(`
           UPDATE user_cards 
@@ -188,7 +261,7 @@ router.post('/finish', authenticateToken, async (req, res) => {
       }
     }
 
-    // Actualizar usuario: XP de Pase de Batalla y Monedas
+    // Actualizar usuario
     await client.query(`
       UPDATE users 
       SET battle_pass_xp = battle_pass_xp + $1,
@@ -207,7 +280,7 @@ router.post('/finish', authenticateToken, async (req, res) => {
     await client.query('COMMIT');
 
     res.json({
-      message: isWin ? '¡Victoria! Excelente combate.' : 'Derrota. ¡Entrena y vuelve a intentarlo!',
+      message: isWin ? '¡Victoria Magistral! Gran estrategia en combate.' : 'Derrota. ¡Entrena y mejora tus ataques!',
       xpEarned,
       coinsEarned,
       itemDropped,

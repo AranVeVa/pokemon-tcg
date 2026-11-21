@@ -7,16 +7,37 @@ import {
   Sword, 
   Shield, 
   Heart, 
+  Zap, 
   Sparkles, 
   CheckCircle, 
   AlertCircle,
-  RotateCcw,
-  RefreshCw
+  Flame,
+  Droplets,
+  Leaf,
+  Ghost,
+  Eye,
+  Snowflake,
+  Activity,
+  ArrowRightLeft
 } from 'lucide-react';
+import { getEffectivenessMultiplier } from '../../../backend/src/data/movesList';
+
+// Helper de iconos y colores por tipo de ataque
+const TYPE_STYLES = {
+  Fuego: { bg: 'bg-red-500', text: 'text-red-600', border: 'border-red-400', lightBg: 'bg-red-50', icon: Flame },
+  Agua: { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-400', lightBg: 'bg-blue-50', icon: Droplets },
+  Planta: { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-400', lightBg: 'bg-emerald-50', icon: Leaf },
+  Eléctrico: { bg: 'bg-amber-400', text: 'text-amber-600', border: 'border-amber-400', lightBg: 'bg-amber-50', icon: Zap },
+  Fantasma: { bg: 'bg-purple-600', text: 'text-purple-600', border: 'border-purple-400', lightBg: 'bg-purple-50', icon: Ghost },
+  Psíquico: { bg: 'bg-pink-500', text: 'text-pink-600', border: 'border-pink-400', lightBg: 'bg-pink-50', icon: Eye },
+  Hielo: { bg: 'bg-cyan-400', text: 'text-cyan-600', border: 'border-cyan-400', lightBg: 'bg-cyan-50', icon: Snowflake },
+  Normal: { bg: 'bg-gray-400', text: 'text-gray-600', border: 'border-gray-400', lightBg: 'bg-gray-50', icon: Activity },
+};
 
 export default function BattleArenaModal({ 
   opponentName = 'Misty_01', 
   battleType = 'normal', // 'amistoso' | 'normal'
+  initialCardId,
   onClose,
   onBattleFinished
 }) {
@@ -25,10 +46,21 @@ export default function BattleArenaModal({
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [battleLogs, setBattleLogs] = useState([]);
-  const [selectedTargetCardId, setSelectedTargetCardId] = useState(null);
-  const [itemUsageMode, setItemUsageMode] = useState(null); // itemKey being used
+  
+  // Battle Energy Meter (0 - 100) para el ataque cargado tipo Pokémon GO
+  const [energy, setEnergy] = useState(0);
+  const [oppEnergy, setOppEnergy] = useState(0);
+
+  // FX & Animation States
+  const [activeAnimation, setActiveAnimation] = useState(null); // 'fire' | 'water' | 'electric' | 'grass' | 'ghost' | 'ice' | 'normal'
+  const [floatingDamage, setFloatingDamage] = useState(null); // { text, typeMultiplier, isCrit, target: 'player'|'opp' }
+  const [attackerAction, setAttackerAction] = useState(null); // 'player' | 'opp'
+  const [hitTarget, setHitTarget] = useState(null); // 'player' | 'opp'
+
+  // Items usage
+  const [itemUsageMode, setItemUsageMode] = useState(null);
   const [isGameOver, setIsGameOver] = useState(false);
-  const [battleResult, setBattleResult] = useState(null); // 'victoria' | 'derrota'
+  const [battleResult, setBattleResult] = useState(null);
   const [rewardInfo, setRewardInfo] = useState(null);
 
   useEffect(() => {
@@ -41,19 +73,20 @@ export default function BattleArenaModal({
       const data = await apiRequest('/battles/start', 'POST', {
         opponentName,
         battleType,
+        selectedUserCardId: initialCardId,
         opponentCardId: 131 // Lapras (Mockup 10)
       });
 
-      // Asegurar valores válidos para el combate
       const userActive = data.activeUserCard;
-      userActive.current_hp = userActive.current_hp > 0 ? userActive.current_hp : Math.round(userActive.max_hp * 0.55); // 55/100 como en Mockup 10
+      if (userActive.current_hp <= 0 && battleType === 'amistoso') {
+        userActive.current_hp = userActive.max_hp;
+      }
 
       setBattleState({
         ...data,
         activeUserCard: userActive
       });
 
-      // Obtener mochila de items
       const teamData = await apiRequest('/battles/team');
       setBattleState(prev => ({
         ...prev,
@@ -62,9 +95,9 @@ export default function BattleArenaModal({
       }));
 
       setBattleLogs([
-        `¡Comienza el ${battleType === 'normal' ? 'Reto Normal' : 'Reto Amistoso'} contra ${opponentName}!`,
+        `¡Comienza el ${battleType === 'normal' ? 'Reto Normal' : 'Reto Amistoso (Sparring)'} contra ${opponentName}!`,
         `${opponentName} envía a ${data.opponent.name} (Nv. ${data.opponent.level}).`,
-        `¡Adelante, ${userActive.name}!`
+        `¡Adelante, ${userActive.name}! (IV: ${userActive.iv_percentage || 85}%)`
       ]);
     } catch (err) {
       alert(`Error al iniciar combate: ${err.message}`);
@@ -74,60 +107,179 @@ export default function BattleArenaModal({
     }
   };
 
-  // Turno de Ataque
-  const handleAttack = () => {
+  // Calcular daño usando Stats (ATK vs DEF, Tipo de Movimiento, STAB y Crítico)
+  const calculateDamage = (attacker, defender, move) => {
+    // Multiplicador elemental (Tabla de Tipos)
+    let mult = 1.0;
+    try {
+      mult = getEffectivenessMultiplier(move.type, defender.types || []);
+    } catch (e) {
+      mult = 1.0;
+    }
+
+    // STAB (Same Type Attack Bonus): x1.2 si el tipo del ataque coincide con el Pokémon
+    const hasStab = attacker.types?.includes(move.type);
+    const stabBonus = hasStab ? 1.2 : 1.0;
+
+    // Probabilidad de Golpe Crítico basado en Speed
+    const critChance = Math.min(0.25, (attacker.spd || 50) / 250);
+    const isCrit = Math.random() < critChance;
+    const critMultiplier = isCrit ? 1.5 : 1.0;
+
+    // Fórmula equilibrada: (Ataque * Poder / Defensa) * Multiplicadores
+    const atkStat = attacker.atk || 50;
+    const defStat = Math.max(20, defender.def || 45);
+    const rawDamage = ((atkStat * (move.power || 20)) / (defStat * 1.5)) * mult * stabBonus * critMultiplier;
+    const damage = Math.max(5, Math.round(rawDamage + (Math.random() * 4)));
+
+    let effectivenessText = '';
+    if (mult >= 1.5) effectivenessText = '¡Es súper eficaz!';
+    else if (mult <= 0.7) effectivenessText = 'No es muy eficaz...';
+    if (isCrit) effectivenessText += ' ¡Golpe Crítico!';
+
+    return { damage, mult, isCrit, effectivenessText };
+  };
+
+  // Ejecutar ataque seleccionado por el jugador
+  const executePlayerMove = (move) => {
     if (isGameOver || actionLoading) return;
     setActionLoading(true);
 
     const { activeUserCard, opponent } = battleState;
 
-    // 1. Daño del jugador
-    const userDamage = Math.round((activeUserCard.atk * 0.45) + (Math.random() * 10));
-    const newOpponentHp = Math.max(0, opponent.currentHp - userDamage);
+    // 1. Iniciar Animación de Ataque del Jugador
+    setAttackerAction('player');
+    setActiveAnimation(move.animationType || 'normal');
 
-    const newLogs = [
-      ...battleLogs,
-      `💥 ¡${activeUserCard.name} atacó con fuerza! Infligió ${userDamage} de daño a ${opponent.name}.`
-    ];
+    setTimeout(() => {
+      // Impacto en el rival
+      setAttackerAction(null);
+      setHitTarget('opp');
 
-    if (newOpponentHp <= 0) {
-      // Victoria
-      newLogs.push(`🏆 ¡${opponent.name} ha sido derrotado! ¡Ganaste el combate!`);
-      setBattleLogs(newLogs);
-      setBattleState(prev => ({
-        ...prev,
-        opponent: { ...prev.opponent, currentHp: 0 }
-      }));
-      finishBattle('victoria', activeUserCard.current_hp);
-      return;
+      const { damage, mult, isCrit, effectivenessText } = calculateDamage(activeUserCard, opponent, move);
+      const newOpponentHp = Math.max(0, opponent.currentHp - damage);
+
+      // Flotante de daño
+      setFloatingDamage({
+        text: `-${damage}`,
+        extra: effectivenessText,
+        mult,
+        isCrit,
+        target: 'opp'
+      });
+
+      // Gestionar Energía
+      let newEnergy = energy;
+      if (move.category === 'fast') {
+        newEnergy = Math.min(100, energy + (move.energyGen || 20));
+      } else {
+        newEnergy = Math.max(0, energy - (move.energyCost || 50));
+      }
+      setEnergy(newEnergy);
+
+      const newLogs = [
+        ...battleLogs,
+        `💥 ¡${activeUserCard.name} usó ${move.name}! Infligió ${damage} de daño. ${effectivenessText}`
+      ];
+
+      setTimeout(() => {
+        setHitTarget(null);
+        setActiveAnimation(null);
+        setFloatingDamage(null);
+
+        // Verificar si rival fue derrotado
+        if (newOpponentHp <= 0) {
+          newLogs.push(`🏆 ¡${opponent.name} ha sido derrotado! ¡Victoria para ${user.username}!`);
+          setBattleLogs(newLogs);
+          setBattleState(prev => ({
+            ...prev,
+            opponent: { ...prev.opponent, currentHp: 0 }
+          }));
+          finishBattle('victoria', activeUserCard.current_hp);
+          return;
+        }
+
+        // Actualizar vida rival
+        setBattleState(prev => ({
+          ...prev,
+          opponent: { ...prev.opponent, currentHp: newOpponentHp }
+        }));
+        setBattleLogs(newLogs);
+
+        // 2. Contraataque del Rival (IA)
+        setTimeout(() => {
+          executeOpponentCounterAttack(newOpponentHp);
+        }, 700);
+
+      }, 700);
+
+    }, 500);
+  };
+
+  // Contraataque de la IA del rival
+  const executeOpponentCounterAttack = (currentOppHp) => {
+    const { activeUserCard, opponent } = battleState;
+    if (currentOppHp <= 0 || isGameOver) return;
+
+    // Elegir ataque del rival
+    const oppMoves = opponent.moves || [];
+    let chosenMove = oppMoves[0] || { name: 'Placaje', power: 15, animationType: 'normal', type: 'Normal' };
+
+    // Si tiene energía para cargado, lo desata
+    if (oppMoves.length > 1 && oppEnergy >= 50) {
+      chosenMove = oppMoves[1];
+      setOppEnergy(0);
+    } else {
+      setOppEnergy(prev => Math.min(100, prev + 25));
     }
 
-    // 2. Contraataque del rival
+    setAttackerAction('opp');
+    setActiveAnimation(chosenMove.animationType || 'normal');
+
     setTimeout(() => {
-      const oppDamage = Math.round((opponent.atk * 0.35) + (Math.random() * 8));
-      const newUserHp = Math.max(0, activeUserCard.current_hp - oppDamage);
+      setAttackerAction(null);
+      setHitTarget('player');
 
-      newLogs.push(`⚡ ${opponent.name} contraataca causando ${oppDamage} de daño.`);
+      const { damage, mult, isCrit, effectivenessText } = calculateDamage(opponent, activeUserCard, chosenMove);
+      const newUserHp = Math.max(0, activeUserCard.current_hp - damage);
 
-      if (newUserHp <= 0) {
-        newLogs.push(`💀 ¡${activeUserCard.name} ha quedado fuera de combate!`);
-        setBattleLogs(newLogs);
-        setBattleState(prev => ({
-          ...prev,
-          opponent: { ...prev.opponent, currentHp: newOpponentHp },
-          activeUserCard: { ...prev.activeUserCard, current_hp: 0 }
-        }));
-        finishBattle('derrota', 0);
-      } else {
-        setBattleLogs(newLogs);
-        setBattleState(prev => ({
-          ...prev,
-          opponent: { ...prev.opponent, currentHp: newOpponentHp },
-          activeUserCard: { ...prev.activeUserCard, current_hp: newUserHp }
-        }));
-        setActionLoading(false);
-      }
-    }, 600);
+      setFloatingDamage({
+        text: `-${damage}`,
+        extra: effectivenessText,
+        mult,
+        isCrit,
+        target: 'player'
+      });
+
+      const updatedLogs = [
+        ...battleLogs,
+        `⚡ ${opponent.name} respondió con ${chosenMove.name} causando ${damage} de daño. ${effectivenessText}`
+      ];
+
+      setTimeout(() => {
+        setHitTarget(null);
+        setActiveAnimation(null);
+        setFloatingDamage(null);
+
+        if (newUserHp <= 0) {
+          updatedLogs.push(`💀 ¡${activeUserCard.name} ha quedado fuera de combate!`);
+          setBattleLogs(updatedLogs);
+          setBattleState(prev => ({
+            ...prev,
+            activeUserCard: { ...prev.activeUserCard, current_hp: 0 }
+          }));
+          finishBattle('derrota', 0);
+        } else {
+          setBattleLogs(updatedLogs);
+          setBattleState(prev => ({
+            ...prev,
+            activeUserCard: { ...prev.activeUserCard, current_hp: newUserHp }
+          }));
+          setActionLoading(false);
+        }
+      }, 700);
+
+    }, 500);
   };
 
   // Usar item desde la mochila (Mockup 10)
@@ -139,7 +291,6 @@ export default function BattleArenaModal({
         userCardId: targetUserCardId
       });
 
-      // Actualizar estado local del equipo y mochila
       setBattleState(prev => {
         const updatedTeam = prev.userTeam.map(c => 
           c.user_card_id === targetUserCardId ? { ...c, current_hp: res.card.current_hp } : c
@@ -171,7 +322,21 @@ export default function BattleArenaModal({
     }
   };
 
-  // Finalizar combate y registrar en BD
+  // Cambiar Pokémon activo en combate
+  const handleSwitchPokemon = (card) => {
+    if (card.current_hp <= 0 && battleType === 'normal') {
+      alert(`${card.name} está debilitado. Usa un revividor para devolverlo al combate.`);
+      return;
+    }
+    setBattleState(prev => ({
+      ...prev,
+      activeUserCard: card
+    }));
+    setEnergy(0);
+    setBattleLogs(prev => [...prev, `🔄 ¡Cambiaste a ${card.name}!`]);
+  };
+
+  // Finalizar combate
   const finishBattle = async (result, finalHp) => {
     setIsGameOver(true);
     setBattleResult(result);
@@ -187,12 +352,12 @@ export default function BattleArenaModal({
 
       setRewardInfo(res);
       if (result === 'victoria') {
-        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        confetti({ particleCount: 140, spread: 85, origin: { y: 0.6 } });
       }
       await refreshUser();
       if (onBattleFinished) onBattleFinished();
     } catch (err) {
-      console.error('Error al registrar final de batalla:', err);
+      console.error('Error al registrar combate:', err);
     } finally {
       setActionLoading(false);
     }
@@ -200,32 +365,41 @@ export default function BattleArenaModal({
 
   if (loading || !battleState) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 backdrop-blur-sm">
         <div className="text-white text-center">
           <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="font-bold text-sm">Entrando al campo de batalla...</p>
+          <p className="font-bold text-sm">Cargando campo de batalla animado...</p>
         </div>
       </div>
     );
   }
 
   const { activeUserCard, opponent, userTeam, items } = battleState;
+  const userMoves = activeUserCard.moves || [];
+  const fastMove = userMoves[0] || { name: 'Ataque Rápido', power: 12, type: 'Normal', energyGen: 15 };
+  const chargedMove = userMoves[1] || { name: 'Golpe Cargado', power: 75, type: 'Normal', energyCost: 50 };
+  const canUseCharged = energy >= (chargedMove.energyCost || 50);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-gray-950/80 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-4xl w-full border border-gray-200 shadow-2xl overflow-hidden flex flex-col my-auto max-h-[95vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-gray-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-4xl w-full border border-gray-300 shadow-2xl overflow-hidden flex flex-col my-auto max-h-[96vh]">
         
-        {/* Header Bar (Mockup 10) */}
-        <div className="bg-gray-900 text-white px-6 py-3.5 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
-            <h3 className="font-black text-sm tracking-wide">
-              {battleType === 'normal' ? 'Reto normal' : 'Reto amistoso'} contra {opponentName}
-            </h3>
+        {/* Header Bar */}
+        <div className="bg-gradient-to-r from-gray-900 via-slate-900 to-gray-900 text-white px-6 py-3 flex items-center justify-between border-b border-gray-800">
+          <div className="flex items-center space-x-2.5">
+            <span className={`w-3 h-3 rounded-full ${battleType === 'normal' ? 'bg-red-500 animate-ping' : 'bg-green-400'}`}></span>
+            <div>
+              <h3 className="font-black text-sm tracking-wide">
+                {battleType === 'normal' ? '⚔️ Reto Normal Competitivo' : '🤝 Reto Amistoso (Sparring)'} contra {opponentName}
+              </h3>
+              <span className="text-[10px] text-gray-400">
+                {battleType === 'normal' ? 'Daño permanente · Premios de items' : 'Práctica amistosa · Pokémon 100% restaurados'}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-400">
+            <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-400 bg-gray-800 px-2.5 py-1 rounded-full">
               <span className="w-4 h-4 rounded-full bg-amber-400 text-gray-900 font-extrabold flex items-center justify-center text-[10px]">P</span>
               <span>{(user?.coins || 0).toLocaleString()}</span>
             </div>
@@ -238,90 +412,232 @@ export default function BattleArenaModal({
           </div>
         </div>
 
-        {/* Combat Battlefield Arena (Mockup 10) */}
-        <div className="p-6 bg-gradient-to-b from-blue-50/50 via-indigo-50/30 to-white relative overflow-hidden">
+        {/* ======================================================== */}
+        {/* BATTLEFIELD WITH ANIMATED SPRITES & VISUAL FX OVERLAYS */}
+        {/* ======================================================== */}
+        <div className="p-6 bg-gradient-to-b from-sky-100 via-slate-50 to-emerald-50/40 relative overflow-hidden min-h-[300px]">
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          {/* Elemental Attack FX Overlay */}
+          {activeAnimation && (
+            <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+              {activeAnimation === 'fire' && (
+                <div className="w-full h-full bg-red-600/30 animate-pulse flex items-center justify-center">
+                  <Flame size={120} className="text-red-500 animate-bounce drop-shadow-[0_0_35px_rgba(239,68,68,0.9)]" />
+                </div>
+              )}
+              {activeAnimation === 'water' && (
+                <div className="w-full h-full bg-blue-600/25 animate-pulse flex items-center justify-center">
+                  <Droplets size={120} className="text-blue-500 animate-bounce drop-shadow-[0_0_35px_rgba(59,130,246,0.9)]" />
+                </div>
+              )}
+              {activeAnimation === 'electric' && (
+                <div className="w-full h-full bg-yellow-400/30 animate-ping flex items-center justify-center">
+                  <Zap size={140} className="text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,1)]" />
+                </div>
+              )}
+              {activeAnimation === 'grass' && (
+                <div className="w-full h-full bg-emerald-600/25 flex items-center justify-center">
+                  <Leaf size={120} className="text-emerald-500 animate-spin drop-shadow-[0_0_35px_rgba(16,185,129,0.9)]" />
+                </div>
+              )}
+              {activeAnimation === 'ghost' && (
+                <div className="w-full h-full bg-purple-900/40 flex items-center justify-center">
+                  <Ghost size={120} className="text-purple-400 animate-pulse drop-shadow-[0_0_35px_rgba(147,51,234,0.9)]" />
+                </div>
+              )}
+              {activeAnimation === 'ice' && (
+                <div className="w-full h-full bg-cyan-300/30 flex items-center justify-center">
+                  <Snowflake size={120} className="text-cyan-400 animate-spin drop-shadow-[0_0_35px_rgba(34,211,238,0.9)]" />
+                </div>
+              )}
+              {activeAnimation === 'normal' && (
+                <div className="w-full h-full bg-white/40 animate-ping flex items-center justify-center">
+                  <Sword size={110} className="text-gray-800 drop-shadow-lg" />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center relative z-10">
             
-            {/* User Active Pokemon (Left) */}
-            <div className="flex flex-col items-center text-center space-y-3">
-              <div className="w-full bg-white/90 backdrop-blur p-3 rounded-2xl border border-blue-200 shadow-sm max-w-xs">
-                <div className="flex items-center justify-between text-xs font-black text-gray-800 mb-1">
+            {/* Player's Pokémon (Left - Back Animated Sprite facing enemy) */}
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-full bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-blue-200 shadow-md max-w-xs relative">
+                <div className="flex items-center justify-between text-xs font-black text-gray-900 mb-1">
                   <span>{activeUserCard.name} Nv. {activeUserCard.level}</span>
-                  <span className={activeUserCard.current_hp === 0 ? 'text-red-600' : 'text-gray-600'}>
-                    {activeUserCard.current_hp} / {activeUserCard.max_hp}
+                  <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                    IV {activeUserCard.iv_percentage || 85}%
                   </span>
                 </div>
+
                 {/* HP Bar */}
+                <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 mb-1">
+                  <span>HP</span>
+                  <span>{activeUserCard.current_hp} / {activeUserCard.max_hp}</span>
+                </div>
                 <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
                   <div 
                     className={`h-full rounded-full transition-all duration-300 ${
-                      activeUserCard.current_hp > 50 ? 'bg-green-500' :
-                      activeUserCard.current_hp > 20 ? 'bg-amber-500' : 'bg-red-500'
+                      activeUserCard.current_hp > activeUserCard.max_hp * 0.5 ? 'bg-green-500' :
+                      activeUserCard.current_hp > activeUserCard.max_hp * 0.2 ? 'bg-amber-500' : 'bg-red-500'
                     }`}
                     style={{ width: `${Math.max(0, (activeUserCard.current_hp / activeUserCard.max_hp) * 100)}%` }}
                   ></div>
                 </div>
+
+                {/* Energy Bar for Charged Attack */}
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-blue-700">
+                    <span className="flex items-center space-x-1">
+                      <Zap size={11} className="fill-blue-600 text-blue-600" />
+                      <span>Energía de Ataque</span>
+                    </span>
+                    <span>{energy}%</span>
+                  </div>
+                  <div className="w-full bg-blue-100 h-1.5 rounded-full overflow-hidden mt-0.5">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${energy}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Floating Damage on Player */}
+                {floatingDamage && floatingDamage.target === 'player' && (
+                  <div className="absolute -top-6 right-2 animate-bounce bg-red-600 text-white font-black text-sm px-2.5 py-1 rounded-xl shadow-lg z-20">
+                    {floatingDamage.text}
+                    {floatingDamage.extra && (
+                      <span className="block text-[9px] font-bold text-yellow-200">{floatingDamage.extra}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Artwork */}
-              <div className="h-44 flex items-center justify-center">
+              {/* Player Sprite: Gen 5 / Showdown Animated Back Sprite */}
+              <div className="h-44 flex items-center justify-center relative">
                 <img 
-                  src={activeUserCard.artwork_url} 
-                  alt={activeUserCard.name} 
-                  className={`h-40 object-contain filter drop-shadow-xl transition-transform ${
-                    activeUserCard.current_hp === 0 ? 'grayscale rotate-12 opacity-60' : 'animate-float'
+                  src={activeUserCard.animated_back_url || activeUserCard.artwork_url} 
+                  alt={activeUserCard.name}
+                  className={`max-h-40 object-contain filter drop-shadow-xl transition-all duration-200 ${
+                    attackerAction === 'player' ? 'translate-x-8 scale-110' : ''
+                  } ${
+                    hitTarget === 'player' ? 'brightness-150 contrast-200 animate-pulse hue-rotate-90' : ''
+                  } ${
+                    activeUserCard.current_hp === 0 ? 'grayscale rotate-45 opacity-50' : ''
                   }`}
+                  onError={(e) => {
+                    // Fallback to front animated or artwork if back animated fails
+                    e.target.src = activeUserCard.artwork_url;
+                  }}
                 />
               </div>
             </div>
 
-            {/* Opponent Pokemon (Right) */}
-            <div className="flex flex-col items-center text-center space-y-3">
-              <div className="w-full bg-white/90 backdrop-blur p-3 rounded-2xl border border-blue-200 shadow-sm max-w-xs">
-                <div className="flex items-center justify-between text-xs font-black text-gray-800 mb-1">
+            {/* Opponent's Pokémon (Right - Front Animated Sprite facing player) */}
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-full bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-blue-200 shadow-md max-w-xs relative">
+                <div className="flex items-center justify-between text-xs font-black text-gray-900 mb-1">
                   <span>{opponent.name} Nv. {opponent.level}</span>
-                  <span className="text-gray-600">{opponent.currentHp} / {opponent.maxHp}</span>
+                  <span className="text-[10px] text-gray-400 font-bold">{opponentName}</span>
                 </div>
+
                 {/* HP Bar */}
+                <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 mb-1">
+                  <span>HP</span>
+                  <span>{opponent.currentHp} / {opponent.maxHp}</span>
+                </div>
                 <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
                   <div 
                     className="bg-green-500 h-full rounded-full transition-all duration-300"
                     style={{ width: `${Math.max(0, (opponent.currentHp / opponent.maxHp) * 100)}%` }}
                   ></div>
                 </div>
+
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 mt-2 pt-1 border-t border-gray-100">
+                  <span>DEF: {opponent.def || 40}</span>
+                  <span>ATQ: {opponent.atk || 45}</span>
+                  <span>SPD: {opponent.spd || 45}</span>
+                </div>
+
+                {/* Floating Damage on Opponent */}
+                {floatingDamage && floatingDamage.target === 'opp' && (
+                  <div className="absolute -top-6 left-2 animate-bounce bg-red-600 text-white font-black text-sm px-2.5 py-1 rounded-xl shadow-lg z-20">
+                    {floatingDamage.text}
+                    {floatingDamage.extra && (
+                      <span className="block text-[9px] font-bold text-yellow-200">{floatingDamage.extra}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Artwork */}
-              <div className="h-44 flex items-center justify-center">
+              {/* Opponent Sprite: Gen 5 / Showdown Animated Front Sprite */}
+              <div className="h-44 flex items-center justify-center relative">
                 <img 
-                  src={opponent.artwork_url} 
-                  alt={opponent.name} 
-                  className={`h-40 object-contain filter drop-shadow-xl transition-transform ${
-                    opponent.currentHp === 0 ? 'grayscale -rotate-12 opacity-60' : 'animate-float [animation-delay:1s]'
+                  src={opponent.animated_front_url || opponent.artwork_url} 
+                  alt={opponent.name}
+                  className={`max-h-40 object-contain filter drop-shadow-xl transition-all duration-200 ${
+                    attackerAction === 'opp' ? '-translate-x-8 scale-110' : ''
+                  } ${
+                    hitTarget === 'opp' ? 'brightness-150 contrast-200 animate-pulse hue-rotate-180' : ''
+                  } ${
+                    opponent.currentHp === 0 ? 'grayscale -rotate-45 opacity-50' : ''
                   }`}
+                  onError={(e) => {
+                    e.target.src = opponent.artwork_url;
+                  }}
                 />
               </div>
             </div>
 
           </div>
 
-          {/* Controls Bar */}
+          {/* ======================================================== */}
+          {/* MOVE SELECTION BUTTONS (Fast Move + Charged Move) */}
+          {/* ======================================================== */}
           {!isGameOver && (
-            <div className="mt-6 flex items-center justify-center gap-4">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+              
+              {/* 1. Ataque Rápido */}
               <button
-                onClick={handleAttack}
+                onClick={() => executePlayerMove(fastMove)}
                 disabled={actionLoading || activeUserCard.current_hp === 0}
-                className="px-8 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-black text-sm rounded-2xl shadow-lg shadow-red-200 hover:shadow-xl transition-all flex items-center space-x-2"
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:bg-gray-300 text-white font-black rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all flex items-center space-x-2.5 group"
               >
-                <Sword size={18} />
-                <span>Atacar</span>
+                <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                  <Sword size={16} />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs uppercase tracking-tight block font-bold text-blue-100">Ataque Rápido</span>
+                  <span className="text-sm font-black">{fastMove.name} ({fastMove.power} dmg)</span>
+                </div>
               </button>
+
+              {/* 2. Ataque Cargado (Glows when energy >= cost) */}
+              <button
+                onClick={() => executePlayerMove(chargedMove)}
+                disabled={actionLoading || !canUseCharged || activeUserCard.current_hp === 0}
+                className={`px-6 py-3 font-black rounded-2xl shadow-lg transition-all flex items-center space-x-2.5 ${
+                  canUseCharged
+                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:scale-105 text-white shadow-amber-300 animate-pulse'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                }`}
+              >
+                <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                  <Zap size={16} className={canUseCharged ? 'fill-yellow-300 text-yellow-300' : ''} />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs uppercase tracking-tight block font-bold">
+                    {canUseCharged ? '¡ATAQUE CARGADO LISTO!' : `Cargado (${energy}/${chargedMove.energyCost || 50}⚡)`}
+                  </span>
+                  <span className="text-sm font-black">{chargedMove.name} ({chargedMove.power} dmg)</span>
+                </div>
+              </button>
+
             </div>
           )}
 
           {/* Combat Log Box */}
-          <div className="mt-4 bg-gray-950/90 text-gray-200 text-xs p-3 rounded-xl max-h-24 overflow-y-auto font-mono space-y-1">
+          <div className="mt-4 bg-gray-950/90 text-gray-200 text-xs p-3 rounded-xl max-h-24 overflow-y-auto font-mono space-y-1 border border-gray-800">
             {battleLogs.slice(-4).map((log, lidx) => (
               <div key={lidx}>{log}</div>
             ))}
@@ -329,14 +645,16 @@ export default function BattleArenaModal({
 
         </div>
 
-        {/* ========================================================== */}
+        {/* ======================================================== */}
         {/* LOWER SECTION: Mockup 10 "Tu equipo" & "Mochila de items" */}
-        {/* ========================================================== */}
-        <div className="p-6 bg-white border-t border-gray-200 grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* ======================================================== */}
+        <div className="p-5 sm:p-6 bg-white border-t border-gray-200 grid grid-cols-1 md:grid-cols-12 gap-6">
           
-          {/* Section: "Tu equipo" (Mockup 10) */}
+          {/* Section: "Tu equipo" (Mockup 10 + Switcher) */}
           <div className="md:col-span-5 space-y-2">
-            <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">Tu equipo</h4>
+            <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">
+              Tu equipo (haz clic para cambiar)
+            </h4>
             
             <div className="space-y-2">
               {userTeam.map((card) => {
@@ -349,16 +667,18 @@ export default function BattleArenaModal({
                     onClick={() => {
                       if (itemUsageMode) {
                         handleUseItemOnCard(itemUsageMode, card.user_card_id);
+                      } else if (!isActive && !isGameOver) {
+                        handleSwitchPokemon(card);
                       }
                     }}
-                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
-                      itemUsageMode ? 'ring-2 ring-blue-400 cursor-pointer hover:bg-blue-50' : ''
+                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all cursor-pointer ${
+                      itemUsageMode ? 'ring-2 ring-blue-400 bg-blue-50' : ''
                     } ${
                       isActive 
-                        ? 'bg-blue-50 border-blue-300' 
+                        ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' 
                         : isFainted 
-                          ? 'bg-red-50 border-red-200 opacity-75' 
-                          : 'bg-gray-50 border-gray-200'
+                          ? 'bg-red-50/70 border-red-200 opacity-70' 
+                          : 'bg-gray-50 hover:bg-gray-100 border-gray-200'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5">
@@ -366,9 +686,9 @@ export default function BattleArenaModal({
                       <div>
                         <span className="font-bold text-gray-900 block leading-tight">{card.name}</span>
                         <span className={`text-[10px] font-semibold ${
-                          isActive ? 'text-blue-600' : isFainted ? 'text-red-600' : 'text-green-600'
+                          isActive ? 'text-blue-600 font-bold' : isFainted ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {isActive ? 'Activo' : isFainted ? 'Debilitado' : 'Listo'}
+                          {isActive ? 'Activo en arena' : isFainted ? 'Debilitado' : 'Listo'}
                         </span>
                       </div>
                     </div>
@@ -379,7 +699,7 @@ export default function BattleArenaModal({
                       </span>
                       {itemUsageMode && (
                         <span className="text-[10px] text-blue-600 font-bold underline">
-                          Aplicar aquí
+                          Aplicar objeto
                         </span>
                       )}
                     </div>
@@ -443,35 +763,35 @@ export default function BattleArenaModal({
 
             {itemUsageMode && (
               <p className="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-lg font-semibold animate-pulse text-center">
-                👉 Ahora haz clic en el Pokémon de "Tu equipo" donde deseas aplicar este objeto.
+                👉 Ahora haz clic en el Pokémon de "Tu equipo" para curarlo o revivirlo.
               </p>
             )}
           </div>
 
         </div>
 
-        {/* Game Over Modal Screen */}
+        {/* Victory / Defeat Screen */}
         {isGameOver && rewardInfo && (
-          <div className="p-6 bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-6 bg-gradient-to-r from-blue-900 via-indigo-900 to-gray-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-blue-800">
             <div>
               <h3 className="text-xl font-black">
                 {battleResult === 'victoria' ? '🎉 ¡Victoria Magistral!' : 'Derrota en combate'}
               </h3>
-              <p className="text-xs text-blue-200">
+              <p className="text-xs text-blue-200 mt-0.5">
                 {rewardInfo.message}
               </p>
               <div className="flex items-center space-x-4 mt-2 text-xs font-bold">
                 <span>+{rewardInfo.xpEarned} XP de Pase</span>
                 <span>+{rewardInfo.coinsEarned} PokéMonedas</span>
                 {rewardInfo.itemDropped && (
-                  <span className="text-amber-300">🎁 ¡Obtuviste {rewardInfo.itemDropped}!</span>
+                  <span className="text-amber-300">🎁 ¡Item obtenido: {rewardInfo.itemDropped}!</span>
                 )}
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className="px-6 py-2.5 bg-white text-gray-900 font-bold rounded-xl text-xs hover:bg-gray-100 shadow transition-colors"
+              className="px-6 py-2.5 bg-white text-gray-900 font-bold rounded-xl text-xs hover:bg-gray-100 shadow-md transition-colors shrink-0"
             >
               Cerrar y Volver
             </button>
