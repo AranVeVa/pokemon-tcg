@@ -417,7 +417,7 @@ router.get('/search-pokeapi', authenticateToken, async (req, res) => {
 
 // Reclamar o Añadir una carta descubierta de PokéAPI a la colección del usuario
 router.post('/claim-pokeapi-card', authenticateToken, async (req, res) => {
-  const client = await db.connect();
+  const client = await db.pool.connect();
   try {
     const { card } = req.body;
     if (!card || !card.id || !card.name) {

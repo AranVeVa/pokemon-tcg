@@ -345,26 +345,26 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
       {/* MODAL DETALLE DE CARTA CON SPRITE ANIMADO, STATS Y 4 ATAQUES */}
       {/* ======================================================== */}
       {inspectedCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full border border-gray-200 shadow-2xl space-y-4 relative max-h-[94vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#0b1222] rounded-3xl p-6 sm:p-7 max-w-lg w-full border border-slate-750 shadow-2xl space-y-4 relative max-h-[94vh] overflow-y-auto text-slate-100">
             <button
               onClick={() => setInspectedCard(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center transition-colors"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center transition-colors"
             >
               <X size={18} />
             </button>
 
             <div className="text-center space-y-1">
-              <span className="text-xs font-mono font-bold text-gray-400">
+              <span className="text-xs font-mono font-bold text-slate-400">
                 #{inspectedCard.id.toString().padStart(3, '0')} · {inspectedCard.rarity?.toUpperCase() || 'COMÚN'}
               </span>
-              <h3 className="text-2xl font-black text-gray-900">
+              <h3 className="text-2xl font-black text-slate-100">
                 {inspectedCard.name}
               </h3>
               
               <div className="flex justify-center gap-1.5">
                 {inspectedCard.types?.map((t, idx) => (
-                  <span key={idx} className="text-xs font-bold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-100">
+                  <span key={idx} className="text-xs font-bold bg-slate-900 text-cyan-400 px-2.5 py-0.5 rounded-full border border-slate-750">
                     {t}
                   </span>
                 ))}
@@ -388,30 +388,30 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
 
             {/* Base Stats Preview */}
             <div className="grid grid-cols-4 gap-2 text-center text-xs">
-              <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                <span className="block text-[10px] text-gray-400 font-bold">HP BASE</span>
-                <span className="font-black text-gray-900">{inspectedCard.hp_base || 60}</span>
+              <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <span className="block text-[10px] text-slate-500 font-bold">HP BASE</span>
+                <span className="font-bold text-slate-200">{inspectedCard.hp_base || 60}</span>
               </div>
-              <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                <span className="block text-[10px] text-gray-400 font-bold">ATQ</span>
-                <span className="font-black text-gray-900">{inspectedCard.atk_base || 60}</span>
+              <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <span className="block text-[10px] text-slate-500 font-bold">ATQ</span>
+                <span className="font-bold text-slate-200">{inspectedCard.atk_base || 60}</span>
               </div>
-              <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                <span className="block text-[10px] text-gray-400 font-bold">DEF</span>
-                <span className="font-black text-gray-900">{inspectedCard.def || 50}</span>
+              <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <span className="block text-[10px] text-slate-500 font-bold">DEF</span>
+                <span className="font-bold text-slate-200">{inspectedCard.def || 50}</span>
               </div>
-              <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                <span className="block text-[10px] text-gray-400 font-bold">SPD</span>
-                <span className="font-black text-gray-900">{inspectedCard.spd || 50}</span>
+              <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <span className="block text-[10px] text-slate-500 font-bold">SPD</span>
+                <span className="font-bold text-slate-200">{inspectedCard.spd || 50}</span>
               </div>
             </div>
 
             {/* Si está registrado, mostrar copias y sus ataques variados */}
             {inspectedCard.is_registered ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs font-bold text-gray-600">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                   <span>Copias en tu colección ({inspectedCard.ownedCopies?.length || 1}):</span>
-                  <span className="text-blue-600 font-black">Nivel Máximo: {inspectedCard.max_level || 5}</span>
+                  <span className="text-cyan-400 font-bold">Nivel Máximo: {inspectedCard.max_level || 5}</span>
                 </div>
 
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
@@ -420,18 +420,18 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                     const chargedMove = copy.moves?.[1] || { name: 'Golpe Cargado', power: 75 };
 
                     return (
-                      <div key={copy.user_card_id || cidx} className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs space-y-1.5">
+                      <div key={copy.user_card_id || cidx} className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-gray-900">Copia #{cidx + 1} · Nivel {copy.level}</span>
-                          <span className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-black text-[10px]">
-                            IV {copy.iv_percentage || 85}% ⭐⭐⭐
+                          <span className="font-extrabold text-slate-200">Copia #{cidx + 1} · Nivel {copy.level}</span>
+                          <span className="text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded-full font-bold text-[10px] border border-amber-500/30">
+                            IV {copy.iv_percentage || 85}%
                           </span>
                         </div>
 
                         {/* Distinct Moveset */}
-                        <div className="flex items-center justify-between text-[10px] bg-white px-2.5 py-1 rounded-lg border">
-                          <span className="text-gray-700">⚡ {fastMove.name} ({fastMove.power} dmg)</span>
-                          <span className="text-amber-700 font-bold">💥 {chargedMove.name} ({chargedMove.power} dmg)</span>
+                        <div className="flex items-center justify-between text-[10px] bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                          <span className="text-slate-300">{fastMove.name} ({fastMove.power} dmg)</span>
+                          <span className="text-amber-400 font-bold">{chargedMove.name} ({chargedMove.power} dmg)</span>
                         </div>
                       </div>
                     );
@@ -443,30 +443,30 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                     setInspectedCard(null);
                     if (onSelectPokemonForUpgrade) onSelectPokemonForUpgrade(inspectedCard.id);
                   }}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow transition-all"
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 font-bold rounded-xl text-xs shadow transition-all"
                 >
                   Ir a Mejorar o Evolucionar este Pokémon
                 </button>
               </div>
             ) : (
               <div className="space-y-3 text-center">
-                <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
-                  <div className="flex items-center justify-center space-x-1 font-bold text-amber-800">
+                <div className="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 space-y-1">
+                  <div className="flex items-center justify-center space-x-1.5 font-bold text-amber-400">
                     <Sparkles size={14} />
-                    <span>¡Pokémon Descubierto del Multiverso PokéAPI!</span>
+                    <span>Pokémon Descubierto en PokéAPI</span>
                   </div>
-                  <p className="text-[11px] text-amber-700">
-                    Puedes reclamar esta carta ahora mismo para añadirla a tu álbum, equiparla en tu equipo de 3 y luchar con ella en el Estadio.
+                  <p className="text-[11px] text-slate-400">
+                    Puedes incorporar esta carta a tu álbum para configurarla en tu equipo de 3 y utilizarla en combates.
                   </p>
                 </div>
 
                 <button
                   onClick={() => handleClaimPokemon(inspectedCard)}
                   disabled={claimLoading}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 text-white font-black rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center space-x-2"
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-cyan-300 border border-cyan-500/50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-2"
                 >
-                  <PlusCircle size={16} />
-                  <span>{claimLoading ? 'Incorporando a tu mazo...' : '⭐ Reclamar e Incorporar a mi Colección'}</span>
+                  <PlusCircle size={15} />
+                  <span>{claimLoading ? 'Incorporando a tu mazo...' : 'Reclamar e Incorporar a mi Colección'}</span>
                 </button>
               </div>
             )}

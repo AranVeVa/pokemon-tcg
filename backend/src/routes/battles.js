@@ -15,10 +15,11 @@ function getAnimatedSprites(pokemonId) {
   };
 }
 
-// Obtener estado del equipo para combate y mochila de items
+// Obtener estado del equipo para combate (3 Pokémon) y mochila de items
 router.get('/team', authenticateToken, async (req, res) => {
   try {
-    const teamRes = await db.query(`
+    // 1. Obtener los Pokémon marcados en el equipo de 3
+    let teamRes = await db.query(`
       SELECT 
         uc.id AS user_card_id,
         uc.level,
@@ -41,10 +42,51 @@ router.get('/team', authenticateToken, async (req, res) => {
         END AS status_text
       FROM user_cards uc
       JOIN pokemon_cards pc ON uc.card_id = pc.id
-      WHERE uc.user_id = $1
-      ORDER BY uc.is_in_team DESC, uc.level DESC
-      LIMIT 6
+      WHERE uc.user_id = $1 AND uc.is_in_team = true
+      ORDER BY uc.level DESC
+      LIMIT 3
     `, [req.user.id]);
+
+    // Si no tiene 3 marcados, autocompletar con los mejores de su colección
+    if (teamRes.rows.length < 3) {
+      const fallbackRes = await db.query(`
+        SELECT 
+          uc.id AS user_card_id,
+          uc.level,
+          uc.current_hp,
+          uc.max_hp,
+          uc.atk,
+          COALESCE(uc.def, 50) AS def,
+          COALESCE(uc.spd, 50) AS spd,
+          COALESCE(uc.iv_percentage, 85) AS iv_percentage,
+          uc.moves,
+          uc.is_in_team,
+          pc.id AS card_id,
+          pc.name,
+          pc.types,
+          pc.sprite_url,
+          pc.artwork_url,
+          CASE 
+            WHEN uc.current_hp = 0 THEN 'Debilitado'
+            ELSE 'Listo'
+          END AS status_text
+        FROM user_cards uc
+        JOIN pokemon_cards pc ON uc.card_id = pc.id
+        WHERE uc.user_id = $1
+        ORDER BY uc.is_in_team DESC, uc.level DESC
+        LIMIT 3
+      `, [req.user.id]);
+
+      teamRes = fallbackRes;
+
+      // Marcar estos 3 en el equipo
+      if (teamRes.rows.length > 0) {
+        const ids = teamRes.rows.map(r => r.user_card_id);
+        await db.query(`
+          UPDATE user_cards SET is_in_team = (id = ANY($1::int[])) WHERE user_id = $2
+        `, [ids, req.user.id]);
+      }
+    }
 
     const enrichedTeam = teamRes.rows.map(card => {
       const animated = getAnimatedSprites(card.card_id);
@@ -86,6 +128,81 @@ router.get('/team', authenticateToken, async (req, res) => {
   }
 });
 
+// Configurar los 3 Pokémon del equipo de combate
+router.post('/set-team', authenticateToken, async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { teamCardIds } = req.body;
+    if (!Array.isArray(teamCardIds) || teamCardIds.length === 0 || teamCardIds.length > 3) {
+      return res.status(400).json({ error: 'Debes seleccionar exactamente entre 1 y 3 Pokémon para tu equipo' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. Quitar todos los Pokémon del equipo del usuario
+    await client.query('UPDATE user_cards SET is_in_team = false WHERE user_id = $1', [req.user.id]);
+
+    // 2. Establecer los seleccionados como is_in_team = true
+    await client.query(`
+      UPDATE user_cards 
+      SET is_in_team = true 
+      WHERE id = ANY($1::int[]) AND user_id = $2
+    `, [teamCardIds, req.user.id]);
+
+    await client.query('COMMIT');
+
+    // 3. Devolver el equipo actualizado
+    const updatedTeamRes = await client.query(`
+      SELECT 
+        uc.id AS user_card_id,
+        uc.level,
+        uc.current_hp,
+        uc.max_hp,
+        uc.atk,
+        COALESCE(uc.def, 50) AS def,
+        COALESCE(uc.spd, 50) AS spd,
+        COALESCE(uc.iv_percentage, 85) AS iv_percentage,
+        uc.moves,
+        uc.is_in_team,
+        pc.id AS card_id,
+        pc.name,
+        pc.types,
+        pc.sprite_url,
+        pc.artwork_url
+      FROM user_cards uc
+      JOIN pokemon_cards pc ON uc.card_id = pc.id
+      WHERE uc.user_id = $1 AND uc.is_in_team = true
+      ORDER BY uc.level DESC
+    `, [req.user.id]);
+
+    const enriched = updatedTeamRes.rows.map(card => {
+      const animated = getAnimatedSprites(card.card_id);
+      let moves = card.moves;
+      if (!moves || !Array.isArray(moves) || moves.length === 0) {
+        moves = generateMovesForPokemon(card.types, card.name);
+      }
+      return {
+        ...card,
+        moves,
+        animated_front_url: animated.front,
+        animated_back_url: animated.back
+      };
+    });
+
+    res.json({
+      success: true,
+      message: 'Equipo de 3 Pokémon actualizado exitosamente',
+      team: enriched
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error al configurar equipo:', error);
+    res.status(500).json({ error: 'Error al guardar equipo de combate' });
+  } finally {
+    client.release();
+  }
+});
+
 // Iniciar combate contra un oponente
 router.post('/start', authenticateToken, async (req, res) => {
   try {
@@ -96,8 +213,8 @@ router.post('/start', authenticateToken, async (req, res) => {
       selectedUserCardId
     } = req.body;
 
-    // Obtener equipo del usuario
-    const userCards = await db.query(`
+    // Obtener equipo de 3 del usuario
+    let userCards = await db.query(`
       SELECT 
         uc.id AS user_card_id,
         uc.level,
@@ -115,19 +232,51 @@ router.post('/start', authenticateToken, async (req, res) => {
         pc.artwork_url
       FROM user_cards uc
       JOIN pokemon_cards pc ON uc.card_id = pc.id
-      WHERE uc.user_id = $1
-      ORDER BY uc.is_in_team DESC, uc.level DESC
-      LIMIT 6
+      WHERE uc.user_id = $1 AND uc.is_in_team = true
+      ORDER BY uc.level DESC
+      LIMIT 3
     `, [req.user.id]);
+
+    if (userCards.rows.length === 0) {
+      userCards = await db.query(`
+        SELECT 
+          uc.id AS user_card_id,
+          uc.level,
+          uc.current_hp,
+          uc.max_hp,
+          uc.atk,
+          COALESCE(uc.def, 50) AS def,
+          COALESCE(uc.spd, 50) AS spd,
+          COALESCE(uc.iv_percentage, 85) AS iv_percentage,
+          uc.moves,
+          pc.id AS card_id,
+          pc.name,
+          pc.types,
+          pc.sprite_url,
+          pc.artwork_url
+        FROM user_cards uc
+        JOIN pokemon_cards pc ON uc.card_id = pc.id
+        WHERE uc.user_id = $1
+        ORDER BY uc.level DESC
+        LIMIT 3
+      `, [req.user.id]);
+    }
 
     if (userCards.rows.length === 0) {
       return res.status(400).json({ error: 'No tienes cartas en tu colección para combatir' });
     }
 
+    // En combate amistoso, restaurar vida completa a los 3 Pokémon del equipo
+    if (battleType === 'amistoso') {
+      userCards.rows.forEach(c => {
+        c.current_hp = c.max_hp;
+      });
+    }
+
     const readyCards = userCards.rows.filter(c => c.current_hp > 0);
     if (readyCards.length === 0 && battleType === 'normal') {
       return res.status(400).json({ 
-        error: 'Todos tus Pokémon están debilitados. Usa revividores en tu mochila antes de entrar a un reto normal.' 
+        error: 'Todos los Pokémon de tu equipo están debilitados. Usa revividores en tu mochila antes de entrar a un reto normal.' 
       });
     }
 
