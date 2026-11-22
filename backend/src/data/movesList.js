@@ -349,7 +349,45 @@ function generateMovesForPokemon(types, pokemonName = '') {
   const fastKey = fastPool[Math.floor(Math.random() * fastPool.length)];
   const chargedKey = chargedPool[Math.floor(Math.random() * chargedPool.length)];
 
-  return [MOVES[fastKey] || MOVES.placaje, MOVES[chargedKey] || MOVES.golpe_cuerpo];
+  // Movimiento 3: Golpe Táctico Veloz
+  const tacticalMove = {
+    id: 'tactical_strike',
+    name: primaryType === 'Agua' ? 'Acua Jet' :
+          primaryType === 'Fuego' ? 'Nitrocarga' :
+          primaryType === 'Eléctrico' ? 'Chispa Rápida' :
+          primaryType === 'Planta' ? 'Hoja Afilada' : 'Ataque Rápido',
+    type: primaryType,
+    category: 'tactical',
+    power: 28,
+    critBonus: 0.35,
+    energyGen: 12,
+    animationType: primaryType.toLowerCase(),
+    description: 'Ataque táctico veloz con +35% de probabilidad de Golpe Crítico.'
+  };
+
+  // Movimiento 4: Movimiento de Refuerzo / Escudo
+  const guardMove = {
+    id: 'guard_buff',
+    name: primaryType === 'Fuego' ? 'Danza Dragón' :
+          primaryType === 'Planta' ? 'Síntesis' :
+          primaryType === 'Agua' ? 'Refugio Marino' : 'Escudo Férreo',
+    type: primaryType,
+    category: 'buff',
+    power: 0,
+    buffType: primaryType === 'Fuego' ? 'atk' : 'def',
+    buffValue: 1.35,
+    energyGen: 25,
+    healAmount: primaryType === 'Planta' ? 25 : 0,
+    animationType: 'buff',
+    description: 'Canaliza energía táctica (+25⚡) y potencia las estadísticas de combate.'
+  };
+
+  return [
+    MOVES[fastKey] || MOVES.placaje, 
+    MOVES[chargedKey] || MOVES.golpe_cuerpo,
+    tacticalMove,
+    guardMove
+  ];
 }
 
 // Tabla de efectividad de tipos

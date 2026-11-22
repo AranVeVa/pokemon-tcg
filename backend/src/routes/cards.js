@@ -2,6 +2,28 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middlewares/auth');
+const { generateMovesForPokemon } = require('../data/movesList');
+
+const POKEAPI_TYPE_MAP = {
+  normal: 'Normal',
+  fire: 'Fuego',
+  water: 'Agua',
+  grass: 'Planta',
+  electric: 'Eléctrico',
+  ice: 'Hielo',
+  fighting: 'Lucha',
+  poison: 'Veneno',
+  ground: 'Tierra',
+  flying: 'Volador',
+  psychic: 'Psíquico',
+  bug: 'Bicho',
+  rock: 'Roca',
+  ghost: 'Fantasma',
+  dragon: 'Dragón',
+  steel: 'Acero',
+  fairy: 'Hada',
+  dark: 'Siniestro'
+};
 
 // Obtener catálogo completo de la Pokédex con estado del usuario
 router.get('/pokedex', authenticateToken, async (req, res) => {
@@ -285,6 +307,198 @@ router.post('/evolve', authenticateToken, async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Error al evolucionar carta:', error);
     res.status(500).json({ error: 'Error al evolucionar carta' });
+  } finally {
+    client.release();
+  }
+});
+
+// Buscar cualquier Pokémon en vivo a través de la PokéAPI o Base de Datos Local
+router.get('/search-pokeapi', authenticateToken, async (req, res) => {
+  try {
+    const query = req.query.query ? req.query.query.trim().toLowerCase() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'Debes proporcionar un nombre o número de Pokémon' });
+    }
+
+    // 1. Verificar si ya existe en la base de datos local
+    const isNumeric = !isNaN(query);
+    let localRes;
+    if (isNumeric) {
+      localRes = await db.query('SELECT * FROM pokemon_cards WHERE id = $1', [parseInt(query)]);
+    } else {
+      localRes = await db.query('SELECT * FROM pokemon_cards WHERE LOWER(name) = $1', [query]);
+    }
+
+    if (localRes.rows.length > 0) {
+      const card = localRes.rows[0];
+      const userCopiesRes = await db.query(`
+        SELECT COUNT(*)::int as count FROM user_cards WHERE card_id = $1 AND user_id = $2
+      `, [card.id, req.user.id]);
+      const countCopies = userCopiesRes.rows[0].count;
+
+      return res.json({
+        found: true,
+        source: 'local',
+        card: {
+          ...card,
+          is_registered: countCopies > 0,
+          count_copies: countCopies,
+          animated_front_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${card.id}.gif`,
+          animated_back_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/back/${card.id}.gif`
+        }
+      });
+    }
+
+    // 2. Si no está en BD local, consultar PokéAPI en vivo (Gen 1 hasta Gen 9)
+    const apiRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(query)}`);
+    if (!apiRes.ok) {
+      return res.status(404).json({ error: `No se encontró ningún Pokémon con el término "${query}" en la PokéAPI.` });
+    }
+
+    const pokeData = await apiRes.json();
+    const id = pokeData.id;
+    const name = pokeData.name.charAt(0).toUpperCase() + pokeData.name.slice(1);
+    
+    // Traducir tipos
+    const types = pokeData.types.map(t => POKEAPI_TYPE_MAP[t.type.name] || 'Normal');
+
+    // Estadísticas
+    const hpStat = pokeData.stats.find(s => s.stat.name === 'hp')?.base_stat || 50;
+    const atkStat = pokeData.stats.find(s => s.stat.name === 'attack')?.base_stat || 50;
+    const defStat = pokeData.stats.find(s => s.stat.name === 'defense')?.base_stat || 50;
+    const spdStat = pokeData.stats.find(s => s.stat.name === 'speed')?.base_stat || 50;
+
+    const bst = hpStat + atkStat + defStat + spdStat;
+    let rarity = 'comun';
+    if (bst > 480) rarity = 'legendario';
+    else if (bst > 400) rarity = 'epica';
+    else if (bst > 330) rarity = 'rara';
+    else if (bst > 250) rarity = 'poco_comun';
+
+    const sprite_url = pokeData.sprites.front_default || '';
+    const artwork_url = pokeData.sprites.other?.['official-artwork']?.front_default || sprite_url;
+    const animated_front_url = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${id}.gif`;
+    const animated_back_url = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/back/${id}.gif`;
+
+    // Verificar si el usuario ya posee esta carta
+    const userCardCheck = await db.query(
+      'SELECT COUNT(*)::int as count FROM user_cards WHERE card_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    const countCopies = userCardCheck.rows[0].count;
+
+    res.json({
+      found: true,
+      source: 'pokeapi_live',
+      card: {
+        id,
+        name,
+        types,
+        hp_base: hpStat,
+        atk_base: atkStat,
+        def: defStat,
+        spd: spdStat,
+        rarity,
+        sprite_url,
+        artwork_url,
+        animated_front_url,
+        animated_back_url,
+        is_registered: countCopies > 0,
+        count_copies: countCopies,
+        moves: generateMovesForPokemon(types, name)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en búsqueda de PokéAPI:', error);
+    res.status(500).json({ error: 'Error al consultar PokéAPI: ' + error.message });
+  }
+});
+
+// Reclamar o Añadir una carta descubierta de PokéAPI a la colección del usuario
+router.post('/claim-pokeapi-card', authenticateToken, async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { card } = req.body;
+    if (!card || !card.id || !card.name) {
+      return res.status(400).json({ error: 'Datos de carta incompletos' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. Guardar la especie en pokemon_cards si no existe
+    await client.query(`
+      INSERT INTO pokemon_cards (
+        id, name, types, hp_base, atk_base, sprite_url, artwork_url, rarity, evolution_stage
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        types = EXCLUDED.types,
+        artwork_url = EXCLUDED.artwork_url,
+        sprite_url = EXCLUDED.sprite_url
+    `, [
+      card.id,
+      card.name,
+      card.types || ['Normal'],
+      card.hp_base || 60,
+      card.atk_base || 60,
+      card.sprite_url || '',
+      card.artwork_url || card.sprite_url || '',
+      card.rarity || 'comun'
+    ]);
+
+    // 2. Verificar o deducir PokéMonedas (50 monedas simbólicas, o gratis si no alcanza)
+    const userCoinsRes = await client.query('SELECT coins FROM users WHERE id = $1', [req.user.id]);
+    const currentCoins = userCoinsRes.rows[0].coins;
+    let coinsDeducted = 0;
+    if (currentCoins >= 50) {
+      await client.query('UPDATE users SET coins = coins - 50 WHERE id = $1', [req.user.id]);
+      coinsDeducted = 50;
+    }
+
+    // 3. Crear carta para el usuario con stats e IVs generados tipo Pokémon GO
+    const moves = card.moves || generateMovesForPokemon(card.types || ['Normal'], card.name);
+    const iv = Math.floor(Math.random() * 26) + 75; // 75% a 100% IV
+    const maxHp = (card.hp_base || 60) * 2;
+    const atk = card.atk_base || 55;
+    const def = card.def || 50;
+    const spd = card.spd || 50;
+
+    const userCardRes = await client.query(`
+      INSERT INTO user_cards (
+        user_id, card_id, level, current_hp, max_hp, atk, def, spd, iv_percentage, moves, is_in_team
+      ) VALUES ($1, $2, 5, $3, $3, $4, $5, $6, $7, $8, false)
+      RETURNING *
+    `, [
+      req.user.id,
+      card.id,
+      maxHp,
+      atk,
+      def,
+      spd,
+      iv,
+      JSON.stringify(moves)
+    ]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `¡Felicidades! Has registrado a ${card.name} (#${card.id}) en tu colección con IV ${iv}% ⭐⭐⭐!`,
+      coinsDeducted,
+      userCard: {
+        ...userCardRes.rows[0],
+        name: card.name,
+        artwork_url: card.artwork_url,
+        sprite_url: card.sprite_url,
+        types: card.types
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error al reclamar carta de PokéAPI:', error);
+    res.status(500).json({ error: 'Error al agregar carta a la colección: ' + error.message });
   } finally {
     client.release();
   }

@@ -37,18 +37,112 @@
   20%, 100% { transform: translate(100%, 100%) rotate(25deg); }
 }
 
+/* 3D Holographic Foil Effect for Cards */
+.holo-card {
+  position: relative;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transform-style: preserve-3d;
+}
+
+.holo-card:hover {
+  transform: translateY(-4px) rotateX(4deg) rotateY(-4deg);
+  box-shadow: 0 15px 35px -5px rgba(59, 130, 246, 0.3), 0 0 15px rgba(236, 72, 153, 0.2);
+}
+
+.holo-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 0, 150, 0.12) 0%,
+    rgba(0, 204, 255, 0.12) 50%,
+    rgba(255, 230, 0, 0.12) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.holo-card:hover::before {
+  opacity: 1;
+}
+
+/* AAA RPG Battle Animations */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-5px, 3px); }
+  20%, 40%, 60%, 80% { transform: translate(5px, -3px); }
+}
+
+.animate-screen-shake {
+  animation: screenShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes playerLunge {
+  0% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(35px, -20px) scale(1.12); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.animate-player-lunge {
+  animation: playerLunge 0.5s ease-in-out;
+}
+
+@keyframes oppLunge {
+  0% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(-35px, 20px) scale(1.12); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.animate-opp-lunge {
+  animation: oppLunge 0.5s ease-in-out;
+}
+
+@keyframes chargedRing {
+  0% { transform: scale(2.4); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: scale(0.3); opacity: 1; }
+}
+
+.animate-charged-ring {
+  animation: chargedRing 0.8s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+@keyframes floatDamage {
+  0% { opacity: 0; transform: translateY(10px) scale(0.6); }
+  25% { opacity: 1; transform: translateY(-10px) scale(1.25); }
+  80% { opacity: 1; transform: translateY(-30px) scale(1); }
+  100% { opacity: 0; transform: translateY(-50px) scale(0.85); }
+}
+
+.animate-float-damage {
+  animation: floatDamage 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes shieldPulse {
+  0%, 100% { opacity: 0.75; transform: scale(1); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.7)); }
+  50% { opacity: 1; transform: scale(1.06); filter: drop-shadow(0 0 25px rgba(56, 189, 248, 1)); }
+}
+
+.animate-shield-pulse {
+  animation: shieldPulse 1.2s infinite ease-in-out;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #0f172a;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #334155;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #475569;
 }
