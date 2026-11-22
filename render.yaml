@@ -18,6 +18,10 @@ services:
         value: "true"
       - key: DATABASE_URL
         sync: false # Pega aquí tu Connection String de Neon PostgreSQL
+      - key: SMTP_USER
+        sync: false # Tu correo Gmail para envíos reales (ej: usuario@gmail.com)
+      - key: SMTP_PASS
+        sync: false # Contraseña de aplicación de Google de 16 letras
       - key: RESEND_API_KEY
         sync: false
       - key: STRIPE_SECRET_KEY
