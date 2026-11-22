@@ -8,7 +8,8 @@ import {
   Settings, 
   Home, 
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  Layers
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,7 +25,6 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'mejorar-evolucionar', label: 'Mi Perfil (Mejorar)', icon: Flame },
   ];
 
-  // Super Admin tab (only for Admin role)
   if (user && user.role === 'Admin') {
     menuItems.push({
       id: 'super-admin',
@@ -35,10 +35,10 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   }
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between shrink-0 shadow-sm">
-      <div className="space-y-1">
-        <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Menú Principal
+    <aside className="w-64 bg-[#0a0f1d] border-r border-slate-800 min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between shrink-0 shadow-lg select-none">
+      <div className="space-y-1.5">
+        <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+          Menú de Juego
         </div>
         
         {menuItems.map((item) => {
@@ -49,21 +49,21 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 isActive
                   ? item.isAdminOnly 
-                    ? 'bg-red-600 text-white shadow-md shadow-red-200' 
-                    : 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                    ? 'bg-red-950/80 text-red-200 border border-red-500/50 shadow-md' 
+                    : 'bg-slate-850 text-cyan-400 border border-cyan-500/40 shadow-md shadow-cyan-950/50'
                   : item.isAdminOnly
-                    ? 'text-red-700 hover:bg-red-50'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
+                    ? 'text-red-400 hover:bg-red-950/40 border border-transparent'
+                    : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200 border border-transparent'
               }`}
             >
-              <Icon size={19} className={isActive ? 'text-white' : item.isAdminOnly ? 'text-red-600' : 'text-gray-500'} />
+              <Icon size={17} className={isActive ? (item.isAdminOnly ? 'text-red-400' : 'text-cyan-400') : 'text-slate-500'} />
               <span>{item.label}</span>
               {item.isAdminOnly && (
-                <span className={`ml-auto text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                  isActive ? 'bg-red-800 text-white' : 'bg-red-100 text-red-700'
+                <span className={`ml-auto text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                  isActive ? 'bg-red-800 text-white' : 'bg-red-950 text-red-400 border border-red-800'
                 }`}>
                   Admin
                 </span>
@@ -73,15 +73,15 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         })}
       </div>
 
-      {/* Footer Info Box */}
-      <div className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl text-xs space-y-1 text-gray-600">
-        <div className="flex items-center space-x-1.5 text-blue-700 font-bold">
-          <Sparkles size={14} />
+      {/* Footer Info Plaque */}
+      <div className="p-3 bg-slate-950/80 border border-slate-850 rounded-2xl text-xs space-y-1">
+        <div className="flex items-center space-x-1.5 text-cyan-400 font-bold text-[11px]">
+          <Sparkles size={13} />
           <span>UVAQ · Prog. Web</span>
         </div>
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[10px] text-slate-400 leading-tight">
           Pokémon TCG · 2026<br />
-          <span className="font-semibold text-gray-700">Arantza Venegas V.</span>
+          <span className="font-semibold text-slate-300">Arantza Venegas V.</span>
         </p>
       </div>
     </aside>

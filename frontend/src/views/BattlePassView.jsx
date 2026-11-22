@@ -11,7 +11,9 @@ import {
   Crown, 
   Clock, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Gem,
+  Coins
 } from 'lucide-react';
 
 export default function BattlePassView({ onOpenStripe }) {
@@ -57,8 +59,8 @@ export default function BattlePassView({ onOpenStripe }) {
   if (loading || !passData) {
     return (
       <div className="text-center py-20">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p className="text-xs text-gray-500">Cargando Pase de Batalla...</p>
+        <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Cargando Pase de Batalla...</p>
       </div>
     );
   }
@@ -70,23 +72,26 @@ export default function BattlePassView({ onOpenStripe }) {
   const visibleRewards = rewards.slice(Math.max(0, userLevel - 4), Math.min(50, userLevel + 8));
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 select-none text-slate-100">
       
-      {/* Title & Season Tag (Mockup 8) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Title & Season Tag */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800/80 pb-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-            Pase de Batalla · <span className="text-blue-600">{seasonName}</span>
-          </h1>
-          <p className="text-xs text-gray-500">
-            Sube de nivel ganando partidas y completando combates para desbloquear recompensas exclusivas.
+          <div className="flex items-center space-x-2">
+            <Trophy size={24} className="text-amber-400" />
+            <h1 className="text-2xl font-black text-slate-100 tracking-tight">
+              Pase de Batalla · <span className="text-cyan-400">{seasonName}</span>
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Gana experiencia en combates RPG y abriendo sobres para desbloquear 50 niveles de recompensas.
           </p>
         </div>
 
         {!isPremium && (
           <button
             onClick={onOpenStripe}
-            className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-200 transition-all flex items-center space-x-2 self-start sm:self-auto"
+            className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center space-x-2 self-start sm:self-auto uppercase tracking-wider"
           >
             <Crown size={16} />
             <span>Desbloquear Premium ($149 MXN)</span>
@@ -96,84 +101,84 @@ export default function BattlePassView({ onOpenStripe }) {
 
       {message.text && (
         <div className={`p-4 rounded-xl text-xs font-semibold flex items-center space-x-2 ${
-          message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+          message.type === 'success' ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/40' : 'bg-red-950/70 text-red-300 border border-red-500/40'
         }`}>
           {message.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           <span>{message.text}</span>
         </div>
       )}
 
-      {/* Level Progress Banner (Mockup 8) */}
-      <section className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-4">
+      {/* Level Progress Banner */}
+      <section className="bg-[#0b1222] rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="flex items-center space-x-3">
-              <span className="text-3xl font-black text-gray-900">Nivel {userLevel}</span>
-              <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+              <span className="text-3xl font-black text-slate-100 tracking-tight">Nivel {userLevel}</span>
+              <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-500/30">
                 {seasonName}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              <strong className="text-gray-800">{currentXp.toLocaleString()}</strong> / {xpForNextLevel.toLocaleString()} XP para el nivel {userLevel + 1}
+            <p className="text-xs text-slate-400 mt-1">
+              <strong className="text-cyan-400 font-mono">{currentXp.toLocaleString()}</strong> / <span className="font-mono">{xpForNextLevel.toLocaleString()} XP</span> para el nivel {userLevel + 1}
             </p>
           </div>
 
           <div className="text-right">
-            <span className="text-xs font-bold text-gray-400">Temporada Primavera</span>
+            <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest">Temporada Activa</span>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden p-0.5 border border-gray-200">
+        <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden p-0.5 border border-slate-800">
           <div 
-            className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500"
+            className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500 shadow-sm shadow-cyan-500/50"
             style={{ width: `${progressPercent}%` }}
           ></div>
         </div>
       </section>
 
-      {/* Main Tracks Grid (Mockup 8) */}
+      {/* Main Tracks Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left 9 Cols: The Dual Tracks (Free & Premium) */}
-        <div className="lg:col-span-9 bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-8 overflow-x-auto">
+        <div className="lg:col-span-9 bg-[#0b1222] rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl space-y-8 overflow-x-auto">
           
           {/* Track 1: Pase Gratuito */}
           <div>
             <div className="flex items-center space-x-2 mb-4">
-              <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                <Gift size={14} />
+              <div className="w-7 h-7 rounded-lg bg-blue-950 text-cyan-400 border border-cyan-500/30 flex items-center justify-center">
+                <Gift size={15} />
               </div>
-              <h3 className="text-sm font-black text-gray-800 uppercase tracking-wide">Pase gratuito</h3>
+              <h3 className="text-xs font-black text-slate-200 uppercase tracking-wider">Pase Gratuito</h3>
             </div>
 
-            <div className="flex items-center space-x-3 overflow-x-auto pb-4">
+            <div className="flex items-center space-x-3 overflow-x-auto pb-4 scrollbar-thin">
               {visibleRewards.map((r) => (
                 <div 
                   key={`free-${r.level}`}
                   className={`w-28 shrink-0 rounded-2xl p-3 border text-center flex flex-col justify-between transition-all ${
                     r.free.claimed
-                      ? 'bg-gray-50 border-gray-200 opacity-60'
+                      ? 'bg-slate-900/40 border-slate-850 opacity-50'
                       : r.free.canClaim
-                        ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200 shadow-md animate-pulse'
-                        : 'bg-white border-gray-200'
+                        ? 'bg-cyan-950/40 border-cyan-500 ring-2 ring-cyan-500/30 shadow-lg shadow-cyan-500/10'
+                        : 'bg-[#080d1a] border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <span className="text-[11px] font-bold text-gray-500">Nv. {r.level}</span>
+                  <span className="text-[11px] font-mono font-bold text-slate-400">Nv. {r.level}</span>
                   
                   <div className="my-2 h-10 flex items-center justify-center">
-                    <span className="w-7 h-7 rounded-full bg-amber-400 text-amber-900 font-black text-xs flex items-center justify-center shadow-inner">
-                      P
+                    <span className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 font-black text-xs flex items-center justify-center shadow-inner">
+                      <Coins size={16} />
                     </span>
                   </div>
 
-                  <span className="text-[10px] font-bold text-gray-700 truncate block">
+                  <span className="text-[10px] font-bold text-slate-200 truncate block">
                     {r.free.title}
                   </span>
 
                   <div className="mt-2">
                     {r.free.claimed ? (
-                      <span className="text-[10px] font-bold text-green-600 flex items-center justify-center space-x-0.5">
+                      <span className="text-[10px] font-bold text-emerald-400 flex items-center justify-center space-x-0.5">
                         <Check size={12} />
                         <span>Reclamado</span>
                       </span>
@@ -181,12 +186,12 @@ export default function BattlePassView({ onOpenStripe }) {
                       <button
                         onClick={() => handleClaimReward(r.level, 'free')}
                         disabled={actionLoading}
-                        className="w-full py-1 bg-blue-600 text-white font-bold rounded-lg text-[10px] shadow"
+                        className="w-full py-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-lg text-[10px] shadow-sm uppercase tracking-wide"
                       >
                         Reclamar
                       </button>
                     ) : (
-                      <span className="text-[10px] font-semibold text-gray-400">
+                      <span className="text-[10px] font-semibold text-slate-500">
                         Pendiente
                       </span>
                     )}
@@ -197,49 +202,51 @@ export default function BattlePassView({ onOpenStripe }) {
           </div>
 
           {/* Track 2: Pase Premium (Solo Premium) */}
-          <div className="pt-4 border-t border-gray-100">
+          <div className="pt-6 border-t border-slate-800">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-                  <Crown size={14} />
+                <div className="w-7 h-7 rounded-lg bg-amber-950 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                  <Crown size={15} />
                 </div>
-                <h3 className="text-sm font-black text-amber-900 uppercase tracking-wide">Pase premium</h3>
-                <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                <h3 className="text-xs font-black text-amber-300 uppercase tracking-wider">Pase Premium</h3>
+                <span className="text-[10px] font-mono font-extrabold text-amber-300 bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-500/30">
                   Solo Premium
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 overflow-x-auto pb-4">
+            <div className="flex items-center space-x-3 overflow-x-auto pb-4 scrollbar-thin">
               {visibleRewards.map((r) => (
                 <div 
                   key={`prem-${r.level}`}
                   className={`w-28 shrink-0 rounded-2xl p-3 border text-center flex flex-col justify-between transition-all ${
                     r.premium.claimed
-                      ? 'bg-gray-50 border-gray-200 opacity-60'
+                      ? 'bg-slate-900/40 border-slate-850 opacity-50'
                       : r.premium.canClaim
-                        ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-200 shadow-md animate-pulse'
-                        : 'bg-white border-amber-200'
+                        ? 'bg-amber-950/40 border-amber-400 ring-2 ring-amber-500/30 shadow-lg shadow-amber-500/10'
+                        : 'bg-[#080d1a] border-slate-800 hover:border-amber-500/30'
                   }`}
                 >
-                  <span className="text-[11px] font-bold text-amber-800">Nv. {r.level}</span>
+                  <span className="text-[11px] font-mono font-bold text-amber-400">Nv. {r.level}</span>
                   
                   <div className="my-2 h-10 flex items-center justify-center">
-                    <span className="w-4 h-4 rotate-45 bg-cyan-500 rounded-sm inline-block shadow-sm"></span>
+                    <span className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black text-xs flex items-center justify-center shadow-inner">
+                      <Gem size={16} />
+                    </span>
                   </div>
 
-                  <span className="text-[10px] font-bold text-gray-800 truncate block">
+                  <span className="text-[10px] font-bold text-slate-200 truncate block">
                     {r.premium.title}
                   </span>
 
                   <div className="mt-2">
                     {r.premium.claimed ? (
-                      <span className="text-[10px] font-bold text-green-600 flex items-center justify-center space-x-0.5">
+                      <span className="text-[10px] font-bold text-emerald-400 flex items-center justify-center space-x-0.5">
                         <Check size={12} />
                         <span>Reclamado</span>
                       </span>
                     ) : r.premium.isLocked ? (
-                      <span className="text-[10px] font-bold text-gray-400 flex items-center justify-center space-x-0.5">
+                      <span className="text-[10px] font-bold text-slate-500 flex items-center justify-center space-x-0.5">
                         <Lock size={11} />
                         <span>Bloqueado</span>
                       </span>
@@ -247,12 +254,12 @@ export default function BattlePassView({ onOpenStripe }) {
                       <button
                         onClick={() => handleClaimReward(r.level, 'premium')}
                         disabled={actionLoading}
-                        className="w-full py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[10px] shadow"
+                        className="w-full py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-lg text-[10px] shadow uppercase tracking-wide"
                       >
                         Reclamar
                       </button>
                     ) : (
-                      <span className="text-[10px] font-semibold text-gray-400">
+                      <span className="text-[10px] font-semibold text-slate-500">
                         Pendiente
                       </span>
                     )}
@@ -264,10 +271,10 @@ export default function BattlePassView({ onOpenStripe }) {
 
         </div>
 
-        {/* Right 3 Cols: Nivel 50 Guaranteed Card (Mockup 8) */}
-        <div className="lg:col-span-3 bg-gradient-to-b from-amber-50 via-yellow-50 to-white rounded-3xl p-6 border-2 border-amber-300 shadow-lg text-center space-y-4">
-          <div className="inline-flex items-center space-x-1.5 text-xs font-black text-amber-800 bg-amber-200/80 px-3 py-1 rounded-full shadow-sm">
-            <Crown size={14} />
+        {/* Right 3 Cols: Nivel 50 Guaranteed Card */}
+        <div className="lg:col-span-3 bg-gradient-to-b from-[#161c2e] via-[#0e1627] to-[#090e18] rounded-3xl p-6 border-2 border-amber-500/40 shadow-2xl text-center space-y-4">
+          <div className="inline-flex items-center space-x-1.5 text-xs font-mono font-black text-amber-300 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-500/40 shadow-sm uppercase tracking-wider">
+            <Crown size={14} className="text-amber-400" />
             <span>Nivel 50 Garantizado</span>
           </div>
 
@@ -275,22 +282,22 @@ export default function BattlePassView({ onOpenStripe }) {
             <img 
               src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/9.png" 
               alt="Blastoise EX"
-              className="max-h-full object-contain filter drop-shadow-xl hover:scale-105 transition-transform animate-float"
+              className="max-h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] hover:scale-105 transition-transform animate-float"
             />
           </div>
 
           <div>
-            <h4 className="text-base font-black text-gray-900">Blastoise EX</h4>
-            <span className="text-xs font-bold text-amber-700 block">Evolución final garantizada</span>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Estadísticas mejoradas exclusivas:<br />
-              <strong className="text-red-600">330 HP</strong> · <strong className="text-blue-600">190 ATQ</strong>
+            <h4 className="text-lg font-black text-slate-100">Blastoise EX</h4>
+            <span className="text-xs font-bold text-cyan-400 block">Evolución final garantizada</span>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Estadísticas de combate de élite:<br />
+              <strong className="text-emerald-400 font-mono">330 HP</strong> · <strong className="text-rose-400 font-mono">190 ATQ</strong>
             </p>
           </div>
 
           <div className="pt-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-1.5 rounded-xl block border border-amber-200">
-              Solo Pase Premium
+            <span className="text-xs font-mono font-bold text-amber-300 bg-amber-950/60 px-3 py-1.5 rounded-xl block border border-amber-500/30">
+              Exclusivo Pase Premium
             </span>
           </div>
         </div>

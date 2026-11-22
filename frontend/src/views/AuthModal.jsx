@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, Mail, Lock, User, CheckCircle2, AlertCircle, KeyRound, RefreshCw, Sparkles, Send } from 'lucide-react';
+import { X, Mail, Lock, User, CheckCircle2, AlertCircle, KeyRound, RefreshCw, Sparkles, Send, Zap } from 'lucide-react';
 import { apiRequest } from '../api';
 
 export default function AuthModal({ initialMode = 'login', onClose }) {
@@ -38,7 +38,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setLoading(true);
     try {
       const res = await register(username, email, password);
-      setInfoMessage(`📧 Correo de verificación enviado con Resend. (Código de prueba: ${res.verificationCode})`);
+      setInfoMessage(`Correo de verificación enviado vía Resend. (Código de prueba: ${res.verificationCode})`);
       setMode('verify');
     } catch (err) {
       setError(err.message);
@@ -64,10 +64,11 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
 
   const handleResendCode = async () => {
     setError('');
+    setInfoMessage('');
     setLoading(true);
     try {
-      const res = await apiRequest('/auth/resend-verification', 'POST');
-      setInfoMessage(`📧 Nuevo código enviado por Resend a tu correo: ${res.verificationCode}`);
+      const res = await apiRequest('/auth/resend-code', 'POST', { email });
+      setInfoMessage(`Nuevo código enviado con Resend. (Código de prueba: ${res.verificationCode})`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -76,12 +77,12 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
   };
 
   const handleForgotPassword = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError('');
     setLoading(true);
     try {
       const res = await apiRequest('/auth/forgot-password', 'POST', { email });
-      setInfoMessage(`📧 Código de recuperación enviado por Resend. (Código: ${res.resetCode})`);
+      setInfoMessage(`Código de recuperación enviado. (Código de prueba: ${res.resetCode})`);
       setMode('reset');
     } catch (err) {
       setError(err.message);
@@ -91,7 +92,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
   };
 
   const handleResetPassword = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError('');
     setLoading(true);
     try {
@@ -131,72 +132,77 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden border border-gray-100 flex flex-col md:flex-row relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in select-none">
+      <div className="bg-[#0b1222] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-750 flex flex-col md:flex-row relative text-slate-100">
         
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors shadow-sm"
+          className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-900 hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-100 transition-colors border border-slate-800"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
-        {/* Left Side: Illustration & Quick Demo */}
-        <div className="md:w-5/12 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 text-white p-8 flex flex-col justify-between relative overflow-hidden">
+        {/* Left Side: Art & Quick Demo */}
+        <div className="md:w-5/12 bg-gradient-to-br from-[#0c162c] via-[#091122] to-[#060b17] p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 relative overflow-hidden">
           <div className="space-y-1 relative z-10">
-            <span className="text-xs uppercase tracking-widest text-blue-200 font-bold">Pokémon TCG</span>
-            <h3 className="text-2xl font-black leading-tight">Tu colección te espera.</h3>
-            <p className="text-xs text-blue-200/90 pt-1">
-              Colecciona cartas con stats únicas, ataques variados y combates animados.
+            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">Pokémon TCG Oficial</span>
+            <h3 className="text-2xl font-black text-slate-100 leading-tight">Tu colección te espera</h3>
+            <p className="text-xs text-slate-400 pt-1">
+              Colecciona cartas de alta calidad con stats de combate, movimientos tácticos y animaciones de RPG.
             </p>
           </div>
 
           {/* Animated PokéAPI Sprites */}
           <div className="my-6 flex items-center justify-center space-x-3 relative z-10">
-            <img 
-              src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/25.gif" 
-              alt="Pikachu"
-              className="w-20 h-20 object-contain filter drop-shadow-lg"
-            />
-            <img 
-              src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/7.gif" 
-              alt="Squirtle"
-              className="w-20 h-20 object-contain filter drop-shadow-lg"
-            />
+            <div className="p-2 bg-slate-950/60 rounded-2xl border border-slate-800">
+              <img 
+                src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/25.gif" 
+                alt="Pikachu"
+                className="w-16 h-16 object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]"
+              />
+            </div>
+            <div className="p-2 bg-slate-950/60 rounded-2xl border border-slate-800">
+              <img 
+                src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/7.gif" 
+                alt="Squirtle"
+                className="w-16 h-16 object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]"
+              />
+            </div>
           </div>
 
           {/* Quick Demo Access Bar */}
-          <div className="bg-blue-950/60 p-3 rounded-2xl border border-blue-600/40 relative z-10">
-            <p className="text-[11px] font-bold text-blue-200 mb-2 uppercase tracking-wide">
-              ⚡ Accesos Rápidos de Demostración:
+          <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 relative z-10">
+            <p className="text-[10px] font-mono font-bold text-cyan-400 mb-2 uppercase tracking-wider flex items-center space-x-1">
+              <Zap size={12} />
+              <span>Accesos Rápidos de Prueba:</span>
             </p>
-            <div className="grid grid-cols-2 gap-1.5 text-xs">
+            <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
               <button
                 type="button"
                 onClick={() => quickLogin('ash')}
-                className="bg-blue-600/80 hover:bg-blue-500 px-2 py-1.5 rounded-lg text-left text-white font-medium truncate transition-colors"
+                className="bg-slate-900 hover:bg-slate-850 hover:text-cyan-300 border border-slate-800 px-2 py-1.5 rounded-lg text-left text-slate-300 font-bold truncate transition-colors"
               >
                 Ash_MX (Premium)
               </button>
               <button
                 type="button"
                 onClick={() => quickLogin('arantza')}
-                className="bg-red-600/80 hover:bg-red-500 px-2 py-1.5 rounded-lg text-left text-white font-medium truncate transition-colors"
+                className="bg-slate-900 hover:bg-slate-850 hover:text-rose-400 border border-slate-800 px-2 py-1.5 rounded-lg text-left text-slate-300 font-bold truncate transition-colors"
               >
                 Arantza (Admin)
               </button>
               <button
                 type="button"
                 onClick={() => quickLogin('gary')}
-                className="bg-indigo-600/80 hover:bg-indigo-500 px-2 py-1.5 rounded-lg text-left text-white font-medium truncate transition-colors"
+                className="bg-slate-900 hover:bg-slate-850 hover:text-indigo-400 border border-slate-800 px-2 py-1.5 rounded-lg text-left text-slate-300 font-bold truncate transition-colors"
               >
                 Gary_Oak (Admin)
               </button>
               <button
                 type="button"
                 onClick={() => quickLogin('misty')}
-                className="bg-teal-600/80 hover:bg-teal-500 px-2 py-1.5 rounded-lg text-left text-white font-medium truncate transition-colors"
+                className="bg-slate-900 hover:bg-slate-850 hover:text-emerald-400 border border-slate-800 px-2 py-1.5 rounded-lg text-left text-slate-300 font-bold truncate transition-colors"
               >
                 Misty_01 (Normal)
               </button>
@@ -208,69 +214,67 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
         <div className="md:w-7/12 p-8 sm:p-10 flex flex-col justify-center">
           
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center space-x-2">
+            <div className="mb-4 p-3 bg-red-950/70 border border-red-500/40 text-red-300 rounded-xl text-xs flex items-center space-x-2">
               <AlertCircle size={16} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {infoMessage && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-xs flex items-center space-x-2">
+            <div className="mb-4 p-3 bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs flex items-center space-x-2">
               <CheckCircle2 size={16} className="shrink-0" />
               <span>{infoMessage}</span>
             </div>
           )}
 
-          {/* ======================================================== */}
           {/* LOGIN */}
-          {/* ======================================================== */}
           {mode === 'login' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-black text-gray-900">Bienvenido</h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Inicia sesión para acceder a tu baraja y combates.
+                <h2 className="text-2xl font-black text-slate-100">Iniciar Sesión</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Accede a tu baraja, progreso de Pokédex y combates RPG.
                 </p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">
                     Correo electrónico o Usuario
                   </label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="text"
                       placeholder="entrenador@correo.com"
                       value={emailOrUsername}
                       onChange={(e) => setEmailOrUsername(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-gray-700">Contraseña</label>
+                    <label className="block text-xs font-mono font-bold text-slate-400">Contraseña</label>
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); setError(''); setInfoMessage(''); }}
-                      className="text-[11px] text-blue-600 hover:underline font-semibold"
+                      className="text-[11px] text-cyan-400 hover:underline font-semibold"
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="password"
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
@@ -278,80 +282,78 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md text-sm transition-all disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl shadow-lg shadow-cyan-500/20 text-xs uppercase tracking-wider transition-all disabled:opacity-50"
                 >
-                  {loading ? 'Entrando...' : 'Entrar al juego'}
+                  {loading ? 'Entrando...' : 'Entrar al Juego'}
                 </button>
 
                 <div className="text-center pt-2">
-                  <span className="text-xs text-gray-400">o</span>
+                  <span className="text-xs text-slate-500">o</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => { setMode('register'); setError(''); setInfoMessage(''); }}
-                  className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-bold rounded-xl text-xs transition-colors"
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 font-bold rounded-xl text-xs transition-colors"
                 >
-                  Crear usuario nuevo
+                  Crear Usuario Nuevo
                 </button>
               </form>
             </div>
           )}
 
-          {/* ======================================================== */}
           {/* REGISTER */}
-          {/* ======================================================== */}
           {mode === 'register' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-black text-gray-900">Crear cuenta</h2>
-                <p className="text-xs text-gray-500 mt-1">
+                <h2 className="text-2xl font-black text-slate-100">Crear Cuenta</h2>
+                <p className="text-xs text-slate-400 mt-1">
                   Verificación de cuenta enviada por <strong>Resend</strong>.
                 </p>
               </div>
 
               <form onSubmit={handleRegister} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Nombre de Entrenador</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Nombre de Entrenador</label>
                   <div className="relative">
-                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="text"
                       placeholder="TuNombre_99"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Correo electrónico</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Correo Electrónico</label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="email"
                       placeholder="entrenador@correo.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Contraseña</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Contraseña</label>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="password"
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
@@ -359,16 +361,16 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md text-sm transition-all disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl shadow-lg shadow-cyan-500/20 text-xs uppercase tracking-wider transition-all disabled:opacity-50"
                 >
-                  {loading ? 'Creando...' : 'Crear mi cuenta con Resend'}
+                  {loading ? 'Creando...' : 'Crear Cuenta con Resend'}
                 </button>
 
                 <div className="text-center pt-2">
                   <button
                     type="button"
                     onClick={() => { setMode('login'); setError(''); setInfoMessage(''); }}
-                    className="text-xs text-blue-600 font-bold hover:underline"
+                    className="text-xs text-cyan-400 font-bold hover:underline"
                   >
                     ¿Ya tienes cuenta? Inicia sesión aquí
                   </button>
@@ -377,21 +379,19 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* VERIFY EMAIL (RESEND) */}
-          {/* ======================================================== */}
+          {/* VERIFY EMAIL */}
           {mode === 'verify' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-black text-gray-900">Verifica tu correo</h2>
-                <p className="text-xs text-gray-500 mt-1">
+                <h2 className="text-2xl font-black text-slate-100">Verifica tu Correo</h2>
+                <p className="text-xs text-slate-400 mt-1">
                   Enviamos un código de 6 dígitos con <strong>Resend</strong> a tu correo asignado.
                 </p>
               </div>
 
               <form onSubmit={handleVerify} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Código de verificación</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Código de verificación</label>
                   <input
                     type="text"
                     maxLength={6}
@@ -399,14 +399,14 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value)}
                     required
-                    className="w-full text-center tracking-widest text-2xl font-black py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none"
+                    className="w-full text-center tracking-widest text-2xl font-mono font-black py-3 bg-slate-900 border border-slate-800 rounded-xl text-cyan-300 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md text-sm transition-all disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl shadow-md text-xs uppercase tracking-wider transition-all disabled:opacity-50"
                 >
                   {loading ? 'Verificando...' : 'Confirmar y Entrar'}
                 </button>
@@ -416,7 +416,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                     type="button"
                     onClick={handleResendCode}
                     disabled={loading}
-                    className="text-xs text-blue-600 font-bold hover:underline inline-flex items-center space-x-1"
+                    className="text-xs text-cyan-400 font-bold hover:underline inline-flex items-center space-x-1"
                   >
                     <RefreshCw size={13} />
                     <span>Reenviar código por correo con Resend</span>
@@ -426,30 +426,28 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
             </div>
           )}
 
-          {/* ======================================================== */}
           {/* FORGOT PASSWORD */}
-          {/* ======================================================== */}
           {mode === 'forgot' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-black text-gray-900">Recuperar Contraseña</h2>
-                <p className="text-xs text-gray-500 mt-1">
+                <h2 className="text-2xl font-black text-slate-100">Recuperar Contraseña</h2>
+                <p className="text-xs text-slate-400 mt-1">
                   Ingresa tu correo para enviarte un código de seguridad mediante <strong>Resend</strong>.
                 </p>
               </div>
 
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Correo electrónico</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Correo electrónico</label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="email"
                       placeholder="entrenador@correo.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
@@ -457,17 +455,17 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md text-sm transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                  className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl shadow-md text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
                 >
                   <Send size={15} />
-                  <span>{loading ? 'Enviando...' : 'Enviar código con Resend'}</span>
+                  <span>{loading ? 'Enviando...' : 'Enviar Código con Resend'}</span>
                 </button>
 
                 <div className="text-center pt-2">
                   <button
                     type="button"
                     onClick={() => { setMode('login'); setError(''); }}
-                    className="text-xs text-gray-500 hover:text-gray-800 font-semibold"
+                    className="text-xs text-slate-400 hover:text-slate-100 font-semibold"
                   >
                     Volver al inicio de sesión
                   </button>
@@ -476,21 +474,19 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
             </div>
           )}
 
-          {/* ======================================================== */}
           {/* RESET PASSWORD */}
-          {/* ======================================================== */}
           {mode === 'reset' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-black text-gray-900">Nueva Contraseña</h2>
-                <p className="text-xs text-gray-500 mt-1">
+                <h2 className="text-2xl font-black text-slate-100">Nueva Contraseña</h2>
+                <p className="text-xs text-slate-400 mt-1">
                   Ingresa el código que te enviamos por correo y tu nueva clave.
                 </p>
               </div>
 
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Código de seguridad (6 dígitos)</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Código de seguridad (6 dígitos)</label>
                   <input
                     type="text"
                     maxLength={6}
@@ -498,21 +494,21 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                     value={resetCode}
                     onChange={(e) => setResetCode(e.target.value)}
                     required
-                    className="w-full text-center tracking-widest text-xl font-black py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none"
+                    className="w-full text-center tracking-widest text-xl font-mono font-black py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-cyan-300 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Nueva Contraseña</label>
+                  <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Nueva Contraseña</label>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="password"
                       placeholder="••••••••••••"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
@@ -520,16 +516,16 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md text-sm transition-all disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl shadow-md text-xs uppercase tracking-wider transition-all disabled:opacity-50"
                 >
-                  {loading ? 'Cambiando...' : 'Guardar nueva contraseña'}
+                  {loading ? 'Cambiando...' : 'Guardar Nueva Contraseña'}
                 </button>
 
                 <div className="text-center pt-2">
                   <button
                     type="button"
                     onClick={() => { setMode('login'); setError(''); }}
-                    className="text-xs text-gray-500 hover:text-gray-800 font-semibold"
+                    className="text-xs text-slate-400 hover:text-slate-100 font-semibold"
                   >
                     Volver a Iniciar Sesión
                   </button>

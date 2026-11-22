@@ -9,7 +9,7 @@ import {
   Diamond, 
   Coins, 
   ArrowRightLeft, 
-  CheckCircle, 
+  CheckCircle2, 
   AlertCircle,
   Shield,
   Gift
@@ -61,20 +61,18 @@ export default function PacksShopView({ onOpenStripe }) {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
-  const formatTimer = (totalSeconds) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const formatTimer = (secs) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   // Abrir Sobre Gratuito
   const handleOpenFreePack = async () => {
-    if (!canClaimFree && secondsRemaining > 0) return;
     setLoadingAction(true);
     setStatusMessage({ text: '', type: '' });
 
@@ -154,23 +152,23 @@ export default function PacksShopView({ onOpenStripe }) {
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 select-none text-slate-100">
       
-      {/* Title & Subtabs (Mockup 2) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Title & Subtabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Sobres y Tienda</h1>
-          <p className="text-xs text-gray-500">
+          <h1 className="text-2xl font-black text-slate-100 tracking-tight">Sobres y Tienda</h1>
+          <p className="text-xs text-slate-400 mt-0.5">
             Abre sobres para obtener nuevas cartas, acumular copias y evolucionar tu equipo.
           </p>
         </div>
 
         {/* Subtabs: [Sobres] [PokéGemas] [Items] */}
-        <div className="inline-flex bg-gray-100 p-1 rounded-xl self-start sm:self-auto border border-gray-200">
+        <div className="inline-flex bg-slate-900 p-1 rounded-xl self-start sm:self-auto border border-slate-800">
           <button
             onClick={() => setActiveSubTab('sobres')}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeSubTab === 'sobres' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              activeSubTab === 'sobres' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Sobres
@@ -178,43 +176,35 @@ export default function PacksShopView({ onOpenStripe }) {
           <button
             onClick={() => setActiveSubTab('pokegemas')}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeSubTab === 'pokegemas' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              activeSubTab === 'pokegemas' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             PokéGemas
-          </button>
-          <button
-            onClick={() => setActiveSubTab('items')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeSubTab === 'items' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Items
           </button>
         </div>
       </div>
 
       {statusMessage.text && (
         <div className={`p-3.5 rounded-xl text-xs font-semibold flex items-center space-x-2 ${
-          statusMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+          statusMessage.type === 'success' ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/40' : 'bg-red-950/70 text-red-300 border border-red-500/40'
         }`}>
-          {statusMessage.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {statusMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           <span>{statusMessage.text}</span>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 1. SECCIÓN SOBRE GRATUITO (Mockup 2 Header Box) */}
+      {/* 1. SECCIÓN SOBRE GRATUITO (Con temporizador en el sobre) */}
       {/* ======================================================== */}
-      <section className="bg-gradient-to-r from-blue-50 via-white to-blue-50 rounded-2xl p-6 border border-blue-200 shadow-sm relative overflow-hidden">
+      <section className="bg-gradient-to-r from-[#0c1527] via-[#090f1d] to-[#060913] rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           
           <div className="flex items-center space-x-6">
-            {/* Graphic with Timer directly ON the pack (Mockup 2 requirement!) */}
-            <div className="relative w-28 h-36 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-2 shadow-lg border-2 border-white flex flex-col items-center justify-center overflow-hidden shrink-0">
+            {/* Graphic with Timer directly ON the pack */}
+            <div className="relative w-28 h-36 bg-gradient-to-br from-[#12203a] to-[#091122] rounded-2xl p-2 shadow-2xl border border-cyan-500/40 flex flex-col items-center justify-center overflow-hidden shrink-0">
               
               {/* Timer Badge Directly Over the Pack */}
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-gray-950/85 backdrop-blur-sm text-white px-2 py-0.5 rounded-md text-[11px] font-black font-mono tracking-wider border border-white/20 shadow-md">
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-950/90 text-cyan-300 px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold tracking-wider border border-cyan-500/30 shadow">
                 {canClaimFree ? '00:00:00' : formatTimer(secondsRemaining)}
               </div>
 
@@ -225,22 +215,22 @@ export default function PacksShopView({ onOpenStripe }) {
                 className={`w-20 h-20 object-contain mt-3 filter drop-shadow ${canClaimFree ? 'animate-bounce' : ''}`}
               />
 
-              <div className="text-[10px] font-black text-blue-200 uppercase tracking-tighter mt-1">
+              <div className="text-[10px] font-black text-slate-300 uppercase tracking-wider mt-1 font-mono">
                 Sobre Gratis
               </div>
             </div>
 
             <div className="space-y-1">
-              <div className="inline-flex items-center space-x-1.5 text-xs font-bold text-blue-700 bg-blue-100/70 px-2.5 py-0.5 rounded-full">
+              <div className="inline-flex items-center space-x-1.5 text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full">
                 <Clock size={12} />
                 <span>{modoDemo ? 'Modo Demo Activo (4 min)' : 'Modo Estándar (4 horas)'}</span>
               </div>
-              <h2 className="text-xl font-black text-gray-900">Sobre gratuito</h2>
-              <p className="text-xs text-gray-600">
+              <h2 className="text-xl font-black text-slate-100">Sobre Gratuito</h2>
+              <p className="text-xs text-slate-400">
                 Se renueva cada 4 horas. Modo demo: cada {intervaloMinutos} minutos.
               </p>
-              <p className="text-xs font-semibold text-gray-500">
-                5 cartas aleatorias obtenidas directamente de PokéAPI.
+              <p className="text-xs font-semibold text-slate-500 font-mono">
+                5 cartas aleatorias obtenidas directamente de la Pokédex.
               </p>
             </div>
           </div>
@@ -250,13 +240,13 @@ export default function PacksShopView({ onOpenStripe }) {
             <button
               onClick={handleOpenFreePack}
               disabled={!canClaimFree && secondsRemaining > 0 || loadingAction}
-              className={`px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-all ${
+              className={`px-6 py-3 rounded-xl font-bold text-xs sm:text-sm uppercase tracking-wider transition-all ${
                 canClaimFree
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 hover:scale-105 animate-pulse'
-                  : 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-none'
+                  ? 'bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-cyan-500/50 shadow-lg shadow-cyan-950 hover:scale-105'
+                  : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed shadow-none'
               }`}
             >
-              {loadingAction ? 'Abriendo...' : canClaimFree ? '¡Abrir sobre gratis!' : 'Abrir cuando esté listo'}
+              {loadingAction ? 'Abriendo...' : canClaimFree ? 'Abrir Sobre Gratis' : 'Esperando Recarga'}
             </button>
           </div>
 
@@ -265,14 +255,14 @@ export default function PacksShopView({ onOpenStripe }) {
 
       {/* Si es Premium: Banner de Sobre Diario Premium */}
       {(user?.role === 'Premium' || user?.role === 'Admin') && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/40 rounded-2xl p-4 flex items-center justify-between shadow-xl">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow">
+            <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-500/50 text-amber-400 flex items-center justify-center font-black">
               <Gift size={20} />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-amber-900">Sobre Diario Premium (Beneficio Activo)</h4>
-              <p className="text-xs text-amber-700">Por tener el Pase de Batalla Premium, tienes 1 sobre especial diario garantizado.</p>
+              <h4 className="text-xs font-bold text-amber-300">Sobre Diario Premium (Beneficio Activo)</h4>
+              <p className="text-[11px] text-slate-400">Por contar con el Pase de Batalla Premium, tienes 1 sobre especial diario garantizado.</p>
             </div>
           </div>
           <button
@@ -280,27 +270,27 @@ export default function PacksShopView({ onOpenStripe }) {
             disabled={!canClaimDailyPremium || loadingAction}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               canClaimDailyPremium
-                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-200'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                ? 'bg-slate-800 hover:bg-slate-750 text-amber-300 border border-amber-500/50 shadow-md'
+                : 'bg-slate-950 text-slate-600 border border-slate-800 cursor-not-allowed'
             }`}
           >
-            {canClaimDailyPremium ? 'Reclamar sobre hoy' : 'Ya reclamado hoy'}
+            {canClaimDailyPremium ? 'Reclamar Sobre Hoy' : 'Ya Reclamado Hoy'}
           </button>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 2. CATÁLOGO DE SOBRES EN TIENDA (Mockup 2 Grid) */}
+      {/* 2. CATÁLOGO DE SOBRES EN TIENDA */}
       {/* ======================================================== */}
       {activeSubTab === 'sobres' && (
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* 1. Sobre Normal */}
-          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="bg-[#0b1222] rounded-3xl p-5 border border-slate-800 shadow-xl hover:border-slate-700 transition-all flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="h-44 bg-blue-50 rounded-xl flex items-center justify-center relative overflow-hidden border border-blue-100">
-                <span className="absolute top-3 left-3 bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-md">
-                  Normal
+              <div className="h-44 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
+                <span className="absolute top-3 left-3 bg-slate-900 text-slate-300 border border-slate-750 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
+                  Común
                 </span>
                 <img 
                   src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png" 
@@ -310,14 +300,14 @@ export default function PacksShopView({ onOpenStripe }) {
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-gray-900">Sobre normal</h3>
-                <p className="text-xs text-gray-500 mt-1">5 cartas, común y poco común.</p>
+                <h3 className="text-base font-bold text-slate-100">Sobre Normal</h3>
+                <p className="text-xs text-slate-400 mt-1">5 cartas de rareza común y poco común.</p>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
-              <div className="flex items-center space-x-1.5 text-amber-800 font-black text-sm">
-                <span className="w-5 h-5 rounded-full bg-amber-400 text-amber-900 font-extrabold flex items-center justify-center text-[10px]">
+            <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 text-amber-300 font-mono font-bold text-sm">
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[10px]">
                   P
                 </span>
                 <span>1,200</span>
@@ -326,7 +316,7 @@ export default function PacksShopView({ onOpenStripe }) {
               <button
                 onClick={() => handleBuyPack('normal', 'coins')}
                 disabled={loadingAction || (user?.coins || 0) < 1200}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl shadow-sm transition-all"
               >
                 Comprar
               </button>
@@ -334,10 +324,10 @@ export default function PacksShopView({ onOpenStripe }) {
           </div>
 
           {/* 2. Sobre Especial */}
-          <div className="bg-white rounded-2xl p-5 border border-purple-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="bg-[#0b1222] rounded-3xl p-5 border border-purple-500/30 shadow-xl hover:border-purple-500/50 transition-all flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="h-44 bg-purple-50 rounded-xl flex items-center justify-center relative overflow-hidden border border-purple-100">
-                <span className="absolute top-3 left-3 bg-purple-100 text-purple-800 text-[11px] font-bold px-2 py-0.5 rounded-md">
+              <div className="h-44 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
+                <span className="absolute top-3 left-3 bg-purple-950 text-purple-300 border border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
                   Especial
                 </span>
                 <img 
@@ -348,15 +338,15 @@ export default function PacksShopView({ onOpenStripe }) {
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-gray-900">Sobre especial</h3>
-                <p className="text-xs text-gray-500 mt-1">5 cartas, alta probabilidad de rara + items.</p>
+                <h3 className="text-base font-bold text-slate-100">Sobre Especial</h3>
+                <p className="text-xs text-slate-400 mt-1">5 cartas con alta probabilidad de rara + probabilidad de items.</p>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
+            <div className="mt-6 pt-4 border-t border-slate-800 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1.5 text-amber-800 font-black text-sm">
-                  <span className="w-5 h-5 rounded-full bg-amber-400 text-amber-900 font-extrabold flex items-center justify-center text-[10px]">
+                <div className="flex items-center space-x-1.5 text-amber-300 font-mono font-bold text-sm">
+                  <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[10px]">
                     P
                   </span>
                   <span>8,000</span>
@@ -364,33 +354,33 @@ export default function PacksShopView({ onOpenStripe }) {
                 <button
                   onClick={() => handleBuyPack('especial', 'coins')}
                   disabled={loadingAction || (user?.coins || 0) < 8000}
-                  className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-purple-300 border border-purple-500/40 text-xs font-bold rounded-xl transition-all"
                 >
-                  Comprar con Monedas
+                  Monedas
                 </button>
               </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                <div className="flex items-center space-x-1.5 text-cyan-800 font-black text-sm">
-                  <span className="w-3.5 h-3.5 rotate-45 bg-cyan-500 rounded-sm inline-block"></span>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-850">
+                <div className="flex items-center space-x-1.5 text-cyan-300 font-mono font-bold text-sm">
+                  <span className="w-3 h-3 rotate-45 bg-cyan-400 rounded-xs inline-block"></span>
                   <span>150</span>
                 </div>
                 <button
                   onClick={() => handleBuyPack('especial', 'gems')}
                   disabled={loadingAction || (user?.gems || 0) < 150}
-                  className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl transition-all"
                 >
-                  Comprar con Gemas
+                  Gemas
                 </button>
               </div>
             </div>
           </div>
 
           {/* 3. Sobre Legendario */}
-          <div className="bg-white rounded-2xl p-5 border border-amber-300 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden">
+          <div className="bg-[#0b1222] rounded-3xl p-5 border border-amber-500/30 shadow-xl hover:border-amber-500/50 transition-all flex flex-col justify-between relative overflow-hidden">
             <div className="space-y-4">
-              <div className="h-44 bg-gradient-to-br from-amber-50 to-yellow-100 rounded-xl flex items-center justify-center relative overflow-hidden border border-amber-200">
-                <span className="absolute top-3 left-3 bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm">
+              <div className="h-44 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
+                <span className="absolute top-3 left-3 bg-amber-950 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
                   Legendario
                 </span>
                 <img 
@@ -401,21 +391,21 @@ export default function PacksShopView({ onOpenStripe }) {
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-gray-900">Sobre legendario</h3>
-                <p className="text-xs text-gray-500 mt-1">Carta legendaria garantizada con buenas estadísticas.</p>
+                <h3 className="text-base font-bold text-slate-100">Sobre Legendario</h3>
+                <p className="text-xs text-slate-400 mt-1">Carta legendaria garantizada con estadísticas superiores.</p>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
-              <div className="flex items-center space-x-1.5 text-cyan-800 font-black text-sm">
-                <span className="w-3.5 h-3.5 rotate-45 bg-cyan-500 rounded-sm inline-block"></span>
+            <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 text-cyan-300 font-mono font-bold text-sm">
+                <span className="w-3.5 h-3.5 rotate-45 bg-cyan-400 rounded-xs inline-block"></span>
                 <span>400</span>
               </div>
 
               <button
                 onClick={() => handleBuyPack('legendario', 'gems')}
                 disabled={loadingAction || (user?.gems || 0) < 400}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-amber-300 border border-amber-500/40 text-xs font-bold rounded-xl shadow transition-all"
               >
                 Comprar
               </button>
@@ -426,13 +416,13 @@ export default function PacksShopView({ onOpenStripe }) {
       )}
 
       {/* ======================================================== */}
-      {/* 3. POKÉGEMAS (DINERO REAL) (Mockup 2 Bottom Box) */}
+      {/* 3. POKÉGEMAS (DINERO REAL) */}
       {/* ======================================================== */}
       {(activeSubTab === 'sobres' || activeSubTab === 'pokegemas') && (
-        <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
+        <section className="bg-[#0b1222] rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-xl space-y-4">
           <div>
-            <h3 className="text-base font-bold text-gray-900">PokéGemas (dinero real)</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">PokéGemas (Moneda Oficial)</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
               Úsalas en sobres legendarios o cámbialas por PokéMonedas. Pasarela segura vía Stripe.
             </p>
           </div>
@@ -440,131 +430,145 @@ export default function PacksShopView({ onOpenStripe }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             
             {/* Paquete 1,000 gemas */}
-            <div className="p-4 bg-cyan-50/60 rounded-xl border border-cyan-200 flex items-center justify-between">
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-cyan-500 text-white flex items-center justify-center font-bold">
-                  <Diamond size={20} />
+                <div className="w-9 h-9 rounded-xl bg-slate-900 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold">
+                  <Diamond size={18} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-gray-900">1,000 gemas</h4>
-                  <p className="text-xs font-semibold text-cyan-700">$99 MXN</p>
+                  <h4 className="text-xs font-bold text-slate-100">1,000 Gemas</h4>
+                  <p className="text-[11px] font-mono text-cyan-400 font-bold">$99 MXN</p>
                 </div>
               </div>
               <button
                 onClick={onOpenStripe}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs shadow-sm"
+                className="px-3.5 py-1.5 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl transition-all"
               >
                 Comprar
               </button>
             </div>
 
-            {/* Paquete 3,000 gemas */}
-            <div className="p-4 bg-purple-50/60 rounded-xl border border-purple-200 flex items-center justify-between">
+            {/* Paquete 2,500 gemas */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold">
-                  <Diamond size={20} />
+                <div className="w-9 h-9 rounded-xl bg-slate-900 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold">
+                  <Diamond size={18} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-gray-900">3,000 gemas (+500)</h4>
-                  <p className="text-xs font-semibold text-purple-700">$249 MXN</p>
+                  <h4 className="text-xs font-bold text-slate-100">2,500 Gemas</h4>
+                  <p className="text-[11px] font-mono text-cyan-400 font-bold">$199 MXN</p>
                 </div>
               </div>
               <button
                 onClick={onOpenStripe}
-                className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow-sm"
+                className="px-3.5 py-1.5 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl transition-all"
               >
                 Comprar
               </button>
             </div>
 
-            {/* Canje de Gemas */}
-            <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-bold text-gray-900">Canje de gemas</h4>
-                <p className="text-xs text-amber-800 font-medium">100 gemas = 5,000 monedas</p>
+            {/* Paquete 6,000 gemas */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-cyan-500/30 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-cyan-950 border border-cyan-500/50 text-cyan-400 flex items-center justify-center font-bold">
+                  <Diamond size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-100">6,000 Gemas</h4>
+                  <p className="text-[11px] font-mono text-cyan-300 font-bold">$399 MXN (Mejor Valor)</p>
+                </div>
               </div>
               <button
-                onClick={handleExchangeGems}
-                disabled={loadingAction || (user?.gems || 0) < 100}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-lg text-xs shadow-sm"
+                onClick={onOpenStripe}
+                className="px-3.5 py-1.5 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/50 text-xs font-bold rounded-xl transition-all"
               >
-                Canjear
+                Comprar
               </button>
             </div>
 
+          </div>
+
+          {/* Canje de Gemas a Monedas */}
+          <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center space-x-2 text-slate-400">
+              <ArrowRightLeft size={15} className="text-cyan-400" />
+              <span>Canje oficial: <strong>100 gemas</strong> equivalen a <strong>5,000 PokéMonedas</strong>.</span>
+            </div>
+            <button
+              onClick={handleExchangeGems}
+              disabled={loadingAction || (user?.gems || 0) < 100}
+              className="px-4 py-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-40 text-slate-200 border border-slate-750 font-bold rounded-xl transition-all text-xs"
+            >
+              Canjear 100 Gemas
+            </button>
           </div>
         </section>
       )}
 
       {/* ======================================================== */}
-      {/* 4. MODAL INTERACTIVO DE APERTURA DE SOBRES CON ANIMACIÓN */}
+      {/* 4. MODAL ANIMADO DE APERTURA DE SOBRES */}
       {/* ======================================================== */}
       {openedCards && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 border border-white/20 shadow-2xl space-y-6 text-center">
-            
-            <div className="space-y-1">
-              <span className="text-xs font-bold uppercase tracking-widest text-blue-600">¡Sobre Abierto!</span>
-              <h2 className="text-2xl sm:text-3xl font-black text-gray-900">{openingPackName}</h2>
-              <p className="text-xs text-gray-500">
-                Se han añadido las 5 nuevas cartas y recompensas a tu colección.
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-6 sm:p-8 max-w-2xl w-full text-center space-y-5 shadow-2xl relative">
+            <button
+              onClick={() => setOpenedCards(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center transition-colors"
+            >
+              <X size={18} />
+            </button>
+
+            <div>
+              <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest block">
+                ¡Apertura Exitosa!
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-100 tracking-tight mt-0.5">
+                {openingPackName}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Cartas agregadas a tu colección y Pokédex:
               </p>
             </div>
 
-            {/* Grid of 5 Cards */}
+            {/* Grid of opened cards */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
               {openedCards.map((card, idx) => (
                 <div 
                   key={idx}
-                  className="bg-gradient-to-b from-gray-50 to-white rounded-2xl p-3 border-2 border-gray-200 shadow hover:shadow-lg flex flex-col items-center justify-between text-center animate-jump card-shine"
-                  style={{ animationDelay: `${idx * 150}ms` }}
+                  className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 text-center relative flex flex-col justify-between holo-card"
                 >
-                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                    card.rarity === 'legendario' ? 'bg-amber-100 text-amber-800' :
-                    card.rarity === 'rara' ? 'bg-purple-100 text-purple-800' :
-                    card.rarity === 'poco_comun' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {card.rarity}
-                  </span>
-
-                  <img 
-                    src={card.artwork_url} 
-                    alt={card.name} 
-                    className="w-24 h-24 object-contain filter drop-shadow my-2"
-                  />
-
-                  <div>
-                    <h4 className="text-xs font-black text-gray-900 leading-tight">{card.name}</h4>
-                    <p className="text-[10px] text-gray-400 font-mono">#{card.id.toString().padStart(3, '0')}</p>
-                    <div className="flex justify-center gap-1 mt-1">
-                      {card.types?.map((t, tidx) => (
-                        <span key={tidx} className="text-[9px] font-bold bg-gray-100 px-1.5 py-0.2 rounded text-gray-600">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="h-20 flex items-center justify-center">
+                    <img src={card.artwork_url} alt={card.name} className="max-h-full object-contain filter drop-shadow" />
+                  </div>
+                  <div className="mt-2 pt-1 border-t border-slate-850">
+                    <span className="text-[9px] font-mono text-slate-500 block">#{card.id.toString().padStart(3, '0')}</span>
+                    <h5 className="text-xs font-bold text-slate-200 truncate">{card.name}</h5>
+                    <span className="text-[8px] font-bold text-cyan-400 capitalize">{card.rarity}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Dropped Items Notice */}
+            {/* Dropped items */}
             {droppedItems.length > 0 && (
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 font-semibold inline-flex items-center space-x-2">
-                <Sparkles size={16} className="text-amber-600" />
-                <span>¡También obtuviste items en este sobre: {droppedItems.map(i => i.name).join(', ')}!</span>
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-left text-xs">
+                <span className="font-bold text-slate-400 block mb-1">Objetos adicionales obtenidos:</span>
+                <div className="flex gap-2">
+                  {droppedItems.map((item, iidx) => (
+                    <span key={iidx} className="bg-slate-900 px-2 py-0.5 rounded text-emerald-400 font-mono text-[11px] border border-slate-800">
+                      {item.name}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
-            <div>
-              <button
-                onClick={() => setOpenedCards(null)}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all text-sm"
-              >
-                Guardar en mi Álbum
-              </button>
-            </div>
-
+            <button
+              onClick={() => setOpenedCards(null)}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border border-slate-700 font-bold text-xs rounded-xl shadow transition-all"
+            >
+              Guardar en mi Álbum
+            </button>
           </div>
         </div>
       )}

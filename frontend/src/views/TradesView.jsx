@@ -34,14 +34,14 @@ export default function TradesView({ onGoToPokedex }) {
         apiRequest('/cards/pokedex')
       ]);
 
-      setTrades(tradesRes.trades);
-      setFriends(friendsRes.friends);
-      setAlbumCards(albumRes.cards);
-      setCatalogCards(pokedexRes.cards);
+      setTrades(tradesRes.trades || []);
+      setFriends(friendsRes.friends || []);
+      setAlbumCards(albumRes.cards || []);
+      setCatalogCards(pokedexRes.cards || []);
 
-      if (friendsRes.friends.length > 0) setSelectedFriendId(friendsRes.friends[0].id);
-      if (albumRes.cards.length > 0) setSelectedOfferedCardId(albumRes.cards[0].user_card_id);
-      if (pokedexRes.cards.length > 0) setSelectedRequestedCardId(pokedexRes.cards[0].id);
+      if (friendsRes.friends?.length > 0) setSelectedFriendId(friendsRes.friends[0].id);
+      if (albumRes.cards?.length > 0) setSelectedOfferedCardId(albumRes.cards[0].user_card_id);
+      if (pokedexRes.cards?.length > 0) setSelectedRequestedCardId(pokedexRes.cards[0].id);
     } catch (err) {
       console.error('Error fetching trade data:', err);
     } finally {
@@ -108,20 +108,23 @@ export default function TradesView({ onGoToPokedex }) {
   const pendingTrades = trades.filter(t => t.status === 'pending');
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 select-none text-slate-100">
       
       {/* Title & Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Intercambio de cartas</h1>
-          <p className="text-xs text-gray-500">
-            Intercambia cartas repetidas por Pokémon que te faltan en la Pokédex de forma 100% segura mediante transacciones atómicas en PostgreSQL.
+          <div className="flex items-center space-x-2">
+            <ArrowLeftRight size={24} className="text-cyan-400" />
+            <h1 className="text-2xl font-black text-slate-100 tracking-tight">Intercambio de Cartas</h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Intercambia cartas repetidas por Pokémon que te faltan en la Pokédex de forma 100% segura mediante transacciones atómicas de PostgreSQL.
           </p>
         </div>
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-200 transition-all flex items-center space-x-2 self-start sm:self-auto"
+          className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center space-x-2 self-start sm:self-auto uppercase tracking-wider"
         >
           <PlusCircle size={16} />
           <span>Proponer Intercambio</span>
@@ -130,18 +133,18 @@ export default function TradesView({ onGoToPokedex }) {
 
       {message.text && (
         <div className={`p-4 rounded-xl text-xs font-semibold flex items-center space-x-2 ${
-          message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+          message.type === 'success' ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/40' : 'bg-red-950/70 text-red-300 border border-red-500/40'
         }`}>
           {message.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           <span>{message.text}</span>
         </div>
       )}
 
-      {/* Main Trade Showcase (Mockup 7: Tú ofreces Eevee <-> Recibes de Misty_01 Lapras) */}
+      {/* Main Trade Showcase */}
       {loading ? (
         <div className="text-center py-16">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs text-gray-500">Cargando propuestas de intercambio...</p>
+          <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Cargando propuestas de intercambio...</p>
         </div>
       ) : pendingTrades.length > 0 ? (
         <div className="space-y-6">
@@ -152,34 +155,34 @@ export default function TradesView({ onGoToPokedex }) {
             return (
               <div 
                 key={trade.id}
-                className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-6"
+                className="bg-[#0b1222] rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl space-y-6"
               >
                 {/* Status Bar */}
-                <div className="flex items-center justify-between text-xs text-gray-400 font-semibold border-b border-gray-100 pb-3">
-                  <span>Propuesta #{trade.id} · Estado: <strong className="text-blue-600">Pendiente de confirmación</strong></span>
+                <div className="flex items-center justify-between text-xs text-slate-400 font-mono font-semibold border-b border-slate-800/80 pb-3">
+                  <span>Propuesta #{trade.id} · Estado: <strong className="text-cyan-400">Pendiente de confirmación</strong></span>
                   <span>{new Date(trade.created_at).toLocaleDateString()}</span>
                 </div>
 
-                {/* 2 Cards Comparison (Mockup 7) */}
+                {/* 2 Cards Comparison */}
                 <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
                   
                   {/* Left Side: "Tú ofreces" */}
-                  <div className="md:col-span-5 bg-gradient-to-b from-gray-50 to-white rounded-2xl p-5 border border-gray-200 flex flex-col items-center text-center shadow-sm">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 self-start">
+                  <div className="md:col-span-5 bg-[#0e1628] rounded-2xl p-5 border border-slate-800 flex flex-col items-center text-center shadow-md">
+                    <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-3 self-start">
                       {isUserSender ? 'Tú ofreces' : `Ofrecido por ${trade.sender_username}`}
                     </span>
 
-                    <div className="h-40 flex items-center justify-center p-2">
+                    <div className="h-40 flex items-center justify-center p-2 bg-slate-950/60 rounded-xl border border-slate-900 w-full">
                       <img 
                         src={trade.offered_card_artwork} 
                         alt={trade.offered_card_name}
-                        className="max-h-full object-contain filter drop-shadow hover:scale-105 transition-transform" 
+                        className="max-h-full object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)] hover:scale-105 transition-transform" 
                       />
                     </div>
 
                     <div className="mt-3">
-                      <h3 className="text-lg font-black text-gray-900">{trade.offered_card_name}</h3>
-                      <p className="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-0.5 rounded-full mt-1">
+                      <h3 className="text-lg font-black text-slate-100">{trade.offered_card_name}</h3>
+                      <p className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-0.5 rounded-full mt-1 inline-block">
                         Copia repetida (x{trade.sender_card_copies || 4})
                       </p>
                     </div>
@@ -187,41 +190,41 @@ export default function TradesView({ onGoToPokedex }) {
 
                   {/* Middle: Icon <> */}
                   <div className="md:col-span-1 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-200">
+                    <div className="w-12 h-12 rounded-full bg-slate-900 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/10">
                       <ArrowLeftRight size={22} />
                     </div>
                   </div>
 
                   {/* Right Side: "Recibes de Misty_01" */}
-                  <div className="md:col-span-5 bg-gradient-to-b from-gray-50 to-white rounded-2xl p-5 border border-gray-200 flex flex-col items-center text-center shadow-sm">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 self-start">
+                  <div className="md:col-span-5 bg-[#0e1628] rounded-2xl p-5 border border-slate-800 flex flex-col items-center text-center shadow-md">
+                    <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-3 self-start">
                       {isUserSender ? `Recibes de ${otherPartyName}` : 'Tú entregas'}
                     </span>
 
-                    <div className="h-40 flex items-center justify-center p-2">
+                    <div className="h-40 flex items-center justify-center p-2 bg-slate-950/60 rounded-xl border border-slate-900 w-full">
                       <img 
                         src={trade.requested_card_artwork} 
                         alt={trade.requested_card_name}
-                        className="max-h-full object-contain filter drop-shadow hover:scale-105 transition-transform" 
+                        className="max-h-full object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)] hover:scale-105 transition-transform" 
                       />
                     </div>
 
                     <div className="mt-3">
-                      <h3 className="text-lg font-black text-gray-900">{trade.requested_card_name}</h3>
-                      <p className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full mt-1">
-                        {parseInt(trade.sender_has_requested) === 0 ? 'Te falta en tu Pokédex' : 'Ya registrada en tu Pokédex'}
+                      <h3 className="text-lg font-black text-slate-100">{trade.requested_card_name}</h3>
+                      <p className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-500/30 px-2.5 py-0.5 rounded-full mt-1 inline-block">
+                        {parseInt(trade.sender_has_requested) === 0 ? 'Falta en tu Pokédex' : 'Ya registrada en tu Pokédex'}
                       </p>
                     </div>
                   </div>
 
                 </div>
 
-                {/* Action Buttons (Mockup 7: [Cancelar] [Confirmar intercambio]) */}
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800">
                   <button
                     onClick={() => handleCancelTrade(trade.id)}
                     disabled={actionLoading}
-                    className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition-colors"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 font-bold rounded-xl text-xs transition-colors"
                   >
                     Cancelar
                   </button>
@@ -229,10 +232,10 @@ export default function TradesView({ onGoToPokedex }) {
                   <button
                     onClick={() => handleConfirmTrade(trade.id)}
                     disabled={actionLoading}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-200 hover:shadow-lg transition-all flex items-center space-x-2"
+                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-2 uppercase tracking-wider"
                   >
                     <Check size={16} />
-                    <span>Confirmar intercambio</span>
+                    <span>Confirmar Intercambio</span>
                   </button>
                 </div>
 
@@ -241,32 +244,32 @@ export default function TradesView({ onGoToPokedex }) {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 shadow-sm space-y-4">
-          <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+        <div className="bg-[#0b1222] rounded-3xl p-12 text-center border border-slate-800 shadow-xl space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto">
             <ArrowLeftRight size={32} />
           </div>
-          <h3 className="text-lg font-bold text-gray-800">No tienes intercambios pendientes en este momento</h3>
-          <p className="text-xs text-gray-500 max-w-md mx-auto">
-            ¡Usa el botón "Proponer Intercambio" para ofrecer una de tus copias repetidas a un amigo a cambio del Pokémon que necesitas!
+          <h3 className="text-lg font-black text-slate-100">No tienes intercambios pendientes en este momento</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Usa el botón "Proponer Intercambio" para ofrecer una de tus copias repetidas a un amigo a cambio del Pokémon que necesitas.
           </p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-xs shadow"
+            className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs shadow-lg shadow-cyan-500/20 uppercase tracking-wider"
           >
-            Proponer intercambio ahora
+            Proponer Intercambio Ahora
           </button>
         </div>
       )}
 
       {/* Propose Trade Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-gray-200 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-lg font-black text-gray-900">Proponer Nuevo Intercambio</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#0b1222] rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-slate-750 shadow-2xl space-y-5 text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-black text-slate-100">Proponer Nuevo Intercambio</h3>
               <button 
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-slate-400 hover:text-slate-100"
               >
                 <X size={20} />
               </button>
@@ -274,15 +277,15 @@ export default function TradesView({ onGoToPokedex }) {
 
             <form onSubmit={handleCreateTrade} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Amigo con quien intercambiar:</label>
+                <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Amigo con quien intercambiar:</label>
                 <select
                   value={selectedFriendId}
                   onChange={(e) => setSelectedFriendId(e.target.value)}
                   required
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold"
+                  className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
                 >
                   {friends.map((f) => (
-                    <option key={f.id} value={f.id}>
+                    <option key={f.id} value={f.id} className="bg-slate-900 text-slate-200">
                       {f.username} ({f.email})
                     </option>
                   ))}
@@ -290,15 +293,15 @@ export default function TradesView({ onGoToPokedex }) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Carta que tú ofreces:</label>
+                <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Carta que tú ofreces:</label>
                 <select
                   value={selectedOfferedCardId}
                   onChange={(e) => setSelectedOfferedCardId(e.target.value)}
                   required
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold"
+                  className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
                 >
                   {albumCards.map((c) => (
-                    <option key={c.user_card_id} value={c.user_card_id}>
+                    <option key={c.user_card_id} value={c.user_card_id} className="bg-slate-900 text-slate-200">
                       {c.name} (Nv. {c.level}) · #{c.card_id}
                     </option>
                   ))}
@@ -306,15 +309,15 @@ export default function TradesView({ onGoToPokedex }) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Pokémon que solicitas recibir:</label>
+                <label className="block text-xs font-mono font-bold text-slate-400 mb-1">Pokémon que solicitas recibir:</label>
                 <select
                   value={selectedRequestedCardId}
                   onChange={(e) => setSelectedRequestedCardId(e.target.value)}
                   required
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold"
+                  className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
                 >
                   {catalogCards.map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
                       #{c.id.toString().padStart(3, '0')} - {c.name} ({c.types?.join(', ')})
                     </option>
                   ))}
@@ -325,16 +328,16 @@ export default function TradesView({ onGoToPokedex }) {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow"
+                  className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs shadow-md uppercase tracking-wider"
                 >
-                  {actionLoading ? 'Enviando...' : 'Enviar propuesta'}
+                  {actionLoading ? 'Enviando...' : 'Enviar Propuesta'}
                 </button>
               </div>
             </form>

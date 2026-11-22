@@ -15,7 +15,9 @@ import {
   Globe,
   PlusCircle,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  BookOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -26,16 +28,16 @@ const TYPES = [
 ];
 
 const GENERATIONS = [
-  { id: 'all', label: 'Todas las Gen', range: [1, 1025] },
-  { id: 'gen1', label: 'Gen 1: Kanto', range: [1, 151] },
-  { id: 'gen2', label: 'Gen 2: Johto', range: [152, 251] },
-  { id: 'gen3', label: 'Gen 3: Hoenn', range: [252, 386] },
-  { id: 'gen4', label: 'Gen 4: Sinnoh', range: [387, 493] },
-  { id: 'gen5', label: 'Gen 5: Teselia', range: [494, 649] },
-  { id: 'gen6', label: 'Gen 6: Kalos', range: [650, 721] },
-  { id: 'gen7', label: 'Gen 7: Alola', range: [722, 809] },
-  { id: 'gen8', label: 'Gen 8: Galar', range: [810, 905] },
-  { id: 'gen9', label: 'Gen 9: Paldea', range: [906, 1025] }
+  { id: 'gen1', label: 'Gen 1: Kanto', range: [1, 151], count: 151 },
+  { id: 'gen2', label: 'Gen 2: Johto', range: [152, 251], count: 100 },
+  { id: 'gen3', label: 'Gen 3: Hoenn', range: [252, 386], count: 135 },
+  { id: 'gen4', label: 'Gen 4: Sinnoh', range: [387, 493], count: 107 },
+  { id: 'gen5', label: 'Gen 5: Teselia', range: [494, 649], count: 156 },
+  { id: 'gen6', label: 'Gen 6: Kalos', range: [650, 721], count: 72 },
+  { id: 'gen7', label: 'Gen 7: Alola', range: [722, 809], count: 88 },
+  { id: 'gen8', label: 'Gen 8: Galar', range: [810, 905], count: 96 },
+  { id: 'gen9', label: 'Gen 9: Paldea', range: [906, 1025], count: 120 },
+  { id: 'all', label: 'Todas las Gen', range: [1, 151], count: 151 }
 ];
 
 const FEATURED_MULTIVERSE = [
@@ -60,9 +62,8 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
   const [selectedGen, setSelectedGen] = useState('gen1');
   const [inspectedCard, setInspectedCard] = useState(null);
 
-  // Live PokéAPI Global Search State
+  // Live PokéAPI Search
   const [pokeApiSearching, setPokeApiSearching] = useState(false);
-  const [pokeApiResult, setPokeApiResult] = useState(null);
   const [claimLoading, setClaimLoading] = useState(false);
 
   useEffect(() => {
@@ -86,9 +87,9 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
     }
   };
 
-  // Búsqueda en vivo de cualquier Pokémon en PokéAPI (#1 a #1025)
+  // Consultar cualquier Pokémon en vivo a través de la PokéAPI (#1 a #1025)
   const handleLivePokeApiSearch = async (queryToSearch) => {
-    const q = (queryToSearch || searchTerm).trim();
+    const q = (queryToSearch || searchTerm).toString().trim();
     if (!q) return;
 
     setPokeApiSearching(true);
@@ -119,7 +120,6 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
       await refreshUser();
       await fetchPokedex();
 
-      // Actualizar tarjeta inspeccionada
       setInspectedCard(prev => ({
         ...prev,
         is_registered: true,
@@ -135,67 +135,147 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
 
   const currentGenObj = GENERATIONS.find(g => g.id === selectedGen) || GENERATIONS[0];
 
-  const filteredCards = cards.filter((card) => {
+  // Construcción de la cuadrícula uniforme estilo Pokédex de Kanto
+  // Asegura que todas las ranuras de la generación seleccionada aparezcan de forma uniforme
+  const buildRosterForGeneration = () => {
+    if (selectedGen === 'all') {
+      const allRegisteredIds = new Set(cards.filter(c => c.is_registered).map(c => c.id));
+      albumCards.forEach(c => allRegisteredIds.add(c.card_id));
+      for (let i = 1; i <= 151; i++) allRegisteredIds.add(i);
+
+      const sortedIds = Array.from(allRegisteredIds).sort((a, b) => a - b);
+      return sortedIds.map(id => {
+        const existingInDb = cards.find(c => c.id === id);
+        const ownedCopies = albumCards.filter(c => c.card_id === id);
+        const isOwned = ownedCopies.length > 0 || (existingInDb && existingInDb.is_registered);
+        if (existingInDb) {
+          return {
+            ...existingInDb,
+            is_registered: isOwned,
+            count_copies: ownedCopies.length,
+            ownedCopies
+          };
+        }
+        return {
+          id,
+          name: `Pokémon #${id}`,
+          types: ['Desconocido'],
+          artwork_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
+          sprite_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+          animated_front_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${id}.gif`,
+          is_registered: isOwned,
+          count_copies: ownedCopies.length,
+          ownedCopies,
+          isPlaceholderRoster: true
+        };
+      });
+    }
+
+    const [startId, endId] = currentGenObj.range;
+    const roster = [];
+
+    // Mapear cada ID de la generación
+    for (let id = startId; id <= endId; id++) {
+      // Buscar si ya está en la BD local
+      const existingInDb = cards.find(c => c.id === id);
+      const ownedCopies = albumCards.filter(c => c.card_id === id);
+      const isOwned = ownedCopies.length > 0 || (existingInDb && existingInDb.is_registered);
+
+      if (existingInDb) {
+        roster.push({
+          ...existingInDb,
+          is_registered: isOwned,
+          count_copies: ownedCopies.length,
+          ownedCopies
+        });
+      } else {
+        // Carta de la generación con sombra uniforme estilo Kanto
+        roster.push({
+          id,
+          name: `Pokémon #${id}`,
+          types: ['Desconocido'],
+          artwork_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
+          sprite_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+          animated_front_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${id}.gif`,
+          is_registered: isOwned,
+          count_copies: ownedCopies.length,
+          ownedCopies,
+          isPlaceholderRoster: true
+        });
+      }
+    }
+
+    return roster;
+  };
+
+  const rawRoster = buildRosterForGeneration();
+
+  const filteredCards = rawRoster.filter((card) => {
     const matchesSearch = 
       card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       card.id.toString().includes(searchTerm);
 
     const matchesType = 
-      selectedType === 'Todos' || (card.types && card.types.includes(selectedType));
+      selectedType === 'Todos' || 
+      (card.types && card.types.includes(selectedType));
 
-    const matchesGen = 
-      selectedGen === 'all' || 
-      (card.id >= currentGenObj.range[0] && card.id <= currentGenObj.range[1]);
-
-    return matchesSearch && matchesType && matchesGen;
+    return matchesSearch && matchesType;
   });
 
   const handleCardClick = (card) => {
-    const ownedCopies = albumCards.filter(c => c.card_id === card.id);
-    setInspectedCard({
-      ...card,
-      ownedCopies
-    });
+    // Si es un Pokémon no registrado de otra generación, consultar sus datos en vivo
+    if (card.isPlaceholderRoster && !card.is_registered) {
+      handleLivePokeApiSearch(card.id);
+    } else {
+      const ownedCopies = albumCards.filter(c => c.card_id === card.id);
+      setInspectedCard({
+        ...card,
+        ownedCopies
+      });
+    }
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 select-none">
       
-      {/* Header & Stats */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header & Stats Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
           <div className="flex items-center space-x-2">
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Pokédex y Multiverso PokéAPI</h1>
-            <span className="text-[10px] font-black uppercase tracking-wider bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full border border-cyan-300">
-              Gen 1 - 9 (1000+ Pokémon)
+            <h1 className="text-2xl font-black text-slate-100 tracking-tight flex items-center space-x-2">
+              <BookOpen size={24} className="text-cyan-400" />
+              <span>Pokédex de Kanto & Multiverso</span>
+            </h1>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-900 text-cyan-400 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+              {currentGenObj.label} ({filteredCards.length} Especies)
             </span>
           </div>
-          <p className="text-sm font-semibold text-gray-500 mt-0.5">
-            <span className="text-blue-600 font-bold">{totalRegistered}</span> registrados en tu colección personal
+          <p className="text-xs text-slate-400 mt-1">
+            <span className="text-cyan-400 font-bold">{totalRegistered}</span> cartas registradas en tu colección de cartas coleccionables.
           </p>
         </div>
 
         {/* Global Live PokéAPI Search Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
-              placeholder="Buscar (ej. Lucario, #448)..."
+              placeholder="Buscar Pokémon o ID (#025)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleLivePokeApiSearch();
               }}
-              className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-blue-500 shadow-sm w-56 sm:w-64"
+              className="pl-9 pr-4 py-2 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm w-52 sm:w-60"
             />
           </div>
 
           <button
             onClick={() => handleLivePokeApiSearch()}
             disabled={pokeApiSearching || !searchTerm.trim()}
-            className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm flex items-center space-x-1.5 transition-all"
-            title="Buscar en toda la base de datos de PokéAPI en vivo"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm flex items-center space-x-1.5 transition-all"
+            title="Buscar en la base de datos de PokéAPI en vivo"
           >
             <Globe size={14} className={pokeApiSearching ? 'animate-spin' : ''} />
             <span>{pokeApiSearching ? 'Buscando...' : 'Buscar PokéAPI'}</span>
@@ -205,10 +285,10 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="py-2 px-3 bg-white border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 shadow-sm cursor-pointer"
+              className="py-2 px-3 bg-[#0b1222] border border-slate-800 rounded-xl text-xs font-semibold text-slate-300 focus:outline-none focus:border-cyan-500 shadow-sm cursor-pointer"
             >
               {TYPES.map((t) => (
-                <option key={t} value={t}>
+                <option key={t} value={t} className="bg-slate-900 text-slate-200">
                   Tipo: {t}
                 </option>
               ))}
@@ -217,34 +297,34 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
         </div>
       </div>
 
-      {/* Quick Search Chips for Popular Multi-Gen Pokémon */}
-      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-3 rounded-2xl border border-blue-100 flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-black text-gray-700 flex items-center space-x-1">
-          <Sparkles size={14} className="text-amber-500" />
+      {/* Quick Discovery Chips for Iconic Multi-Gen Pokémon */}
+      <div className="bg-[#0b1222] p-3 rounded-2xl border border-slate-800 flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-bold text-slate-400 flex items-center space-x-1 mr-1">
+          <Sparkles size={13} className="text-amber-400" />
           <span>Multiverso Destacado:</span>
         </span>
         {FEATURED_MULTIVERSE.map((item) => (
           <button
             key={item.id}
             onClick={() => handleLivePokeApiSearch(item.name)}
-            className="px-2.5 py-1 bg-white hover:bg-blue-600 hover:text-white rounded-lg text-gray-700 font-bold border border-blue-200 shadow-sm transition-all flex items-center space-x-1"
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-850 hover:text-cyan-300 text-slate-300 rounded-lg font-bold border border-slate-800 shadow-sm transition-all flex items-center space-x-1 font-mono text-[11px]"
           >
             <span>{item.name}</span>
-            <span className="text-[10px] opacity-60">#{item.id}</span>
+            <span className="text-[10px] text-slate-500">#{item.id}</span>
           </button>
         ))}
       </div>
 
-      {/* Generation Filter Tabs */}
+      {/* Generation Selector Tabs */}
       <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-thin">
         {GENERATIONS.map((gen) => (
           <button
             key={gen.id}
             onClick={() => setSelectedGen(gen.id)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               selectedGen === gen.id
-                ? 'bg-gray-900 text-white shadow-md'
-                : 'bg-white hover:bg-gray-100 text-gray-600 border border-gray-200'
+                ? 'bg-slate-800 text-cyan-400 border border-cyan-500/50 shadow-md'
+                : 'bg-[#0b1222] hover:bg-slate-900 text-slate-400 border border-slate-800'
             }`}
           >
             {gen.label}
@@ -252,32 +332,32 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
         ))}
       </div>
 
-      {/* Pokédex Grid with 3D Holographic Foil Cards */}
+      {/* Pokédex Grid: Uniform Cards with Authentic Kanto Silhouette */}
       {loading ? (
-        <div className="text-center py-16">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs text-gray-500 font-bold">Cargando catálogo de cartas...</p>
+        <div className="text-center py-16 space-y-3">
+          <div className="w-10 h-10 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto shadow-lg shadow-cyan-500/20"></div>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Cargando catálogo de cartas...</p>
         </div>
       ) : filteredCards.length === 0 ? (
-        <div className="bg-white rounded-2xl p-10 text-center border border-gray-200 shadow-sm space-y-3">
-          <Globe size={40} className="mx-auto text-blue-500 animate-pulse" />
-          <h3 className="text-base font-black text-gray-900">
-            ¿Buscando a "{searchTerm}" de otra generación?
+        <div className="bg-[#0b1222] border border-slate-800 rounded-3xl p-10 text-center space-y-4 shadow-xl">
+          <Globe size={40} className="mx-auto text-cyan-400 animate-pulse" />
+          <h3 className="text-base font-black text-slate-100">
+            {searchTerm ? `¿Buscando a "${searchTerm}" en otras regiones?` : 'No hay Pokémon que coincidan con el filtro seleccionado'}
           </h3>
-          <p className="text-xs text-gray-500 max-w-md mx-auto">
-            PokéAPI cuenta con más de 1025 Pokémon de todas las regiones. Haz clic abajo para buscarlo en vivo e incorporarlo a tu mazo de cartas.
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            La PokéAPI global contiene más de 1025 especies de todas las regiones. Puedes consultar cualquier especie en vivo e incorporarla a tu baraja.
           </p>
-          <button
-            onClick={() => handleLivePokeApiSearch()}
-            disabled={pokeApiSearching}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-md transition-all inline-flex items-center space-x-2"
-          >
-            <Sparkles size={16} />
-            <span>Consultar "{searchTerm}" en la PokéAPI Global</span>
-          </button>
+          {searchTerm && (
+            <button
+              onClick={() => handleLivePokeApiSearch(searchTerm)}
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs shadow-lg shadow-cyan-500/20 uppercase tracking-wider"
+            >
+              Consultar "{searchTerm}" en PokéAPI Global
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
           {filteredCards.map((card) => {
             const isOwned = card.is_registered;
 
@@ -285,52 +365,56 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
               <div
                 key={card.id}
                 onClick={() => handleCardClick(card)}
-                className={`holo-card rounded-2xl p-3 border text-center transition-all relative flex flex-col justify-between cursor-pointer ${
+                className={`rounded-2xl p-3 border text-center transition-all relative flex flex-col justify-between cursor-pointer group ${
                   isOwned
-                    ? 'bg-white border-gray-200 shadow-sm hover:shadow-xl hover:border-blue-400 group'
-                    : 'bg-gray-100/70 border-gray-200 opacity-60 hover:opacity-80'
+                    ? 'bg-[#0b1222] border-slate-800 hover:border-cyan-500/60 hover:scale-[1.02] shadow-sm hover:shadow-xl'
+                    : 'bg-[#080d19]/80 border-slate-850/80 hover:border-slate-700 hover:scale-[1.01]'
                 }`}
               >
-                {/* Badge: Number of copies */}
+                {/* Badge: Number of copies owned */}
                 {isOwned && card.count_copies > 0 && (
-                  <div className="absolute top-2 right-2 bg-gray-900 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-10">
+                  <div className="absolute top-2 right-2 bg-cyan-950 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shadow z-10">
                     x{card.count_copies}
                   </div>
                 )}
 
-                {/* Pokemon Artwork or Silhouette */}
-                <div className="h-28 flex items-center justify-center p-2 relative">
+                {/* Pokemon Artwork Viewport with Uniform Kanto Silhouette */}
+                <div className="h-28 flex items-center justify-center p-2 relative rounded-xl bg-slate-950/60 border border-slate-900 overflow-hidden">
                   <img
                     src={card.artwork_url}
-                    alt={isOwned ? card.name : '???'}
-                    className={`max-h-full max-w-full object-contain filter drop-shadow transition-transform ${
+                    alt={isOwned ? card.name : `Pokémon #${card.id}`}
+                    className={`max-h-full max-w-full object-contain filter transition-all duration-200 ${
                       isOwned 
-                        ? 'group-hover:scale-110' 
-                        : 'brightness-0 contrast-200 opacity-20'
+                        ? 'drop-shadow-[0_8px_12px_rgba(0,0,0,0.7)] group-hover:scale-110' 
+                        : 'kanto-silhouette'
                     }`}
+                    onError={(e) => {
+                      e.target.src = card.sprite_url || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
+                    }}
                   />
                 </div>
 
                 {/* Info Text */}
-                <div className="mt-2 pt-2 border-t border-gray-100">
-                  <span className="text-[10px] font-mono text-gray-400 font-bold block">
+                <div className="mt-2 pt-2 border-t border-slate-800/80">
+                  <span className="text-[10px] font-mono text-slate-500 font-bold block">
                     #{card.id.toString().padStart(3, '0')}
                   </span>
-                  <h4 className="text-xs font-black text-gray-900 truncate">
-                    {isOwned ? card.name : '???'}
+                  
+                  <h4 className="text-xs font-bold text-slate-100 truncate mt-0.5">
+                    {isOwned ? card.name : (card.isPlaceholderRoster ? `??? (#${card.id})` : '???')}
                   </h4>
 
                   {isOwned ? (
                     <div className="flex items-center justify-center gap-1 mt-1">
                       {card.types?.map((t, tidx) => (
-                        <span key={tidx} className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                        <span key={tidx} className="text-[9px] font-bold text-slate-300 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
                           {t}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <span className="text-[9px] font-semibold text-gray-400 block mt-1">
-                      No registrado
+                    <span className="text-[9px] font-semibold text-slate-500 block mt-1 font-mono">
+                      {card.isPlaceholderRoster ? 'Pulsa para descubrir' : 'No registrado'}
                     </span>
                   )}
                 </div>
@@ -387,7 +471,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
             </div>
 
             {/* Base Stats Preview */}
-            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="grid grid-cols-4 gap-2 text-center text-xs font-mono">
               <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
                 <span className="block text-[10px] text-slate-500 font-bold">HP BASE</span>
                 <span className="font-bold text-slate-200">{inspectedCard.hp_base || 60}</span>
@@ -443,7 +527,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                     setInspectedCard(null);
                     if (onSelectPokemonForUpgrade) onSelectPokemonForUpgrade(inspectedCard.id);
                   }}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 font-bold rounded-xl text-xs shadow transition-all"
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-cyan-500/40 font-bold rounded-xl text-xs shadow transition-all"
                 >
                   Ir a Mejorar o Evolucionar este Pokémon
                 </button>
@@ -463,7 +547,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                 <button
                   onClick={() => handleClaimPokemon(inspectedCard)}
                   disabled={claimLoading}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-cyan-300 border border-cyan-500/50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-2"
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-50 text-cyan-300 border border-cyan-500/50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-2"
                 >
                   <PlusCircle size={15} />
                   <span>{claimLoading ? 'Incorporando a tu mazo...' : 'Reclamar e Incorporar a mi Colección'}</span>
