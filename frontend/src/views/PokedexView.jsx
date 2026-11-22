@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Layers,
-  BookOpen
+  BookOpen,
+  Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -56,11 +57,48 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
 
   // Live PokéAPI Search
   const [pokeApiSearching, setPokeApiSearching] = useState(false);
+  const [liveApiCard, setLiveApiCard] = useState(null);
+  const [liveApiSearching, setLiveApiSearching] = useState(false);
   const [claimLoading, setClaimLoading] = useState(false);
 
   useEffect(() => {
     fetchPokedex();
   }, []);
+
+  // Búsqueda en vivo automática en PokéAPI si el usuario escribe el nombre de cualquier Pokémon (#1 a #1025)
+  useEffect(() => {
+    const q = debouncedSearchTerm.trim().toLowerCase().replace('#', '');
+    if (!q || q.length < 2) {
+      setLiveApiCard(null);
+      setLiveApiSearching(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const searchLive = async () => {
+      setLiveApiSearching(true);
+      try {
+        const res = await apiRequest(`/cards/search-pokeapi?query=${encodeURIComponent(q)}`);
+        if (!isCancelled && res && res.card) {
+          const ownedCopies = albumCards.filter(c => c.card_id === res.card.id);
+          setLiveApiCard({
+            ...res.card,
+            is_registered: ownedCopies.length > 0 || res.card.is_registered,
+            count_copies: ownedCopies.length,
+            ownedCopies,
+            source: res.source
+          });
+        }
+      } catch (e) {
+        if (!isCancelled) setLiveApiCard(null);
+      } finally {
+        if (!isCancelled) setLiveApiSearching(false);
+      }
+    };
+
+    searchLive();
+    return () => { isCancelled = true; };
+  }, [debouncedSearchTerm]);
 
   const fetchPokedex = async () => {
     setLoading(true);
@@ -202,23 +240,90 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
 
   const rawRoster = buildRosterForGeneration();
 
-  const filteredCards = rawRoster.filter((card) => {
-    const q = debouncedSearchTerm.toLowerCase().trim();
-    const matchesSearch = 
-      !q ||
-      card.name.toLowerCase().includes(q) ||
-      card.id.toString().includes(q);
+  const filteredCards = useMemo(() => {
+    const q = debouncedSearchTerm.toLowerCase().replace('#', '').trim();
 
-    const matchesType = 
-      selectedType === 'Todos' || 
-      (card.types && card.types.includes(selectedType));
+    // Si no hay búsqueda activa por texto, mostrar la generación seleccionada
+    if (!q) {
+      return rawRoster.filter(card => {
+        return selectedType === 'Todos' || (card.types && card.types.includes(selectedType));
+      });
+    }
 
-    return matchesSearch && matchesType;
-  });
+    // Si hay búsqueda activa por texto, buscar globalmente en toda la BD + PokéAPI
+    const matched = [];
+    const seenIds = new Set();
+
+    // 1. Coincidencias en la base de datos (Kanto + Sylveon + otros registrados)
+    cards.forEach(card => {
+      const matchesSearch =
+        card.name.toLowerCase().includes(q) ||
+        card.id.toString() === q ||
+        card.id.toString().includes(q);
+      const matchesType =
+        selectedType === 'Todos' ||
+        (card.types && card.types.includes(selectedType));
+
+      if (matchesSearch && matchesType) {
+        const ownedCopies = albumCards.filter(c => c.card_id === card.id);
+        const isOwned = ownedCopies.length > 0 || card.is_registered;
+        matched.push({
+          ...card,
+          is_registered: isOwned,
+          count_copies: ownedCopies.length,
+          ownedCopies
+        });
+        seenIds.add(card.id);
+      }
+    });
+
+    // 2. Coincidencias en cartas del álbum del usuario
+    albumCards.forEach(ac => {
+      if (!seenIds.has(ac.card_id)) {
+        const matchesSearch =
+          (ac.name && ac.name.toLowerCase().includes(q)) ||
+          ac.card_id.toString() === q ||
+          ac.card_id.toString().includes(q);
+        const matchesType =
+          selectedType === 'Todos' ||
+          (ac.types && ac.types.includes(selectedType));
+
+        if (matchesSearch && matchesType) {
+          const ownedCopies = albumCards.filter(c => c.card_id === ac.card_id);
+          matched.push({
+            id: ac.card_id,
+            name: ac.name,
+            types: ac.types,
+            hp_base: ac.hp_base || 60,
+            atk_base: ac.atk_base || 60,
+            artwork_url: ac.artwork_url || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${ac.card_id}.png`,
+            sprite_url: ac.sprite_url || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${ac.card_id}.png`,
+            animated_front_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${ac.card_id}.gif`,
+            is_registered: true,
+            count_copies: ownedCopies.length,
+            ownedCopies
+          });
+          seenIds.add(ac.card_id);
+        }
+      }
+    });
+
+    // 3. Si la búsqueda en vivo de PokéAPI encontró un resultado y no está ya en la lista
+    if (liveApiCard && !seenIds.has(liveApiCard.id)) {
+      const matchesType =
+        selectedType === 'Todos' ||
+        (liveApiCard.types && liveApiCard.types.includes(selectedType));
+      if (matchesType) {
+        matched.push(liveApiCard);
+      }
+    }
+
+    return matched;
+  }, [debouncedSearchTerm, rawRoster, cards, albumCards, selectedType, liveApiCard]);
 
   const handleCardClick = (card) => {
-    // Si es un Pokémon no registrado de otra generación, consultar sus datos en vivo
-    if (card.isPlaceholderRoster && !card.is_registered) {
+    // Si es un Pokémon no registrado de otra generación sin datos detallados, consultar en vivo
+    if (card.isPlaceholderRoster && !card.is_registered && !card.artwork_url) {
       handleLivePokeApiSearch(card.id);
     } else {
       const ownedCopies = albumCards.filter(c => c.card_id === card.id);
@@ -241,7 +346,9 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
               <span>Pokédex</span>
             </h1>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-900 text-cyan-400 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
-              {currentGenObj.label} ({filteredCards.length} Especies)
+              {debouncedSearchTerm.trim()
+                ? `Búsqueda Global (${filteredCards.length} ${filteredCards.length === 1 ? 'Especie' : 'Especies'})`
+                : `${currentGenObj.label} (${filteredCards.length} Especies)`}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -258,8 +365,11 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
               placeholder="Buscar por nombre o número (#001)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm w-60 sm:w-72"
+              className="pl-9 pr-8 py-2 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm w-60 sm:w-72"
             />
+            {liveApiSearching && (
+              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 animate-spin" />
+            )}
           </div>
 
           <div className="relative">
@@ -323,6 +433,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
           {filteredCards.map((card) => {
             const isOwned = card.is_registered;
+            const isRevealed = isOwned || !!debouncedSearchTerm.trim() || card.source === 'pokeapi_live' || !card.isPlaceholderRoster;
 
             return (
               <div
@@ -331,6 +442,8 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                 className={`rounded-2xl p-3 border text-center transition-all relative flex flex-col justify-between cursor-pointer group ${
                   isOwned
                     ? 'bg-[#0b1222] border-slate-800 hover:border-cyan-500/60 hover:scale-[1.02] shadow-sm hover:shadow-xl'
+                    : isRevealed
+                    ? 'bg-[#0b1222]/90 border-cyan-500/30 hover:border-cyan-500/70 hover:scale-[1.02] shadow-md'
                     : 'bg-[#080d19]/80 border-slate-850/80 hover:border-slate-700 hover:scale-[1.01]'
                 }`}
               >
@@ -341,13 +454,13 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                   </div>
                 )}
 
-                {/* Pokemon Artwork Viewport with Uniform Kanto Silhouette */}
+                {/* Pokemon Artwork Viewport */}
                 <div className="h-28 flex items-center justify-center p-2 relative rounded-xl bg-slate-950/60 border border-slate-900 overflow-hidden">
                   <img
                     src={card.artwork_url}
-                    alt={isOwned ? card.name : `Pokémon #${card.id}`}
+                    alt={isRevealed ? card.name : `Pokémon #${card.id}`}
                     className={`max-h-full max-w-full object-contain filter transition-all duration-200 ${
-                      isOwned 
+                      isRevealed 
                         ? 'drop-shadow-[0_8px_12px_rgba(0,0,0,0.7)] group-hover:scale-110' 
                         : 'kanto-silhouette'
                     }`}
@@ -364,16 +477,23 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                   </span>
                   
                   <h4 className="text-xs font-bold text-slate-100 truncate mt-0.5">
-                    {isOwned ? card.name : (card.isPlaceholderRoster ? `??? (#${card.id})` : '???')}
+                    {isRevealed ? card.name : (card.isPlaceholderRoster ? `??? (#${card.id})` : '???')}
                   </h4>
 
-                  {isOwned ? (
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      {card.types?.map((t, tidx) => (
-                        <span key={tidx} className="text-[9px] font-bold text-slate-300 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
-                          {t}
+                  {isRevealed ? (
+                    <div className="space-y-1 mt-1">
+                      <div className="flex items-center justify-center gap-1">
+                        {card.types?.map((t, tidx) => (
+                          <span key={tidx} className="text-[9px] font-bold text-slate-300 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                      {!isOwned && (
+                        <span className="text-[8px] font-mono font-bold text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30 block">
+                          PokéAPI · Clic para ver
                         </span>
-                      ))}
+                      )}
                     </div>
                   ) : (
                     <span className="text-[9px] font-semibold text-slate-500 block mt-1 font-mono">
