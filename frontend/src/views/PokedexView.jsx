@@ -322,16 +322,13 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
   }, [debouncedSearchTerm, rawRoster, cards, albumCards, selectedType, liveApiCard]);
 
   const handleCardClick = (card) => {
-    // Si es un Pokémon no registrado de otra generación sin datos detallados, consultar en vivo
-    if (card.isPlaceholderRoster && !card.is_registered && !card.artwork_url) {
-      handleLivePokeApiSearch(card.id);
-    } else {
-      const ownedCopies = albumCards.filter(c => c.card_id === card.id);
-      setInspectedCard({
-        ...card,
-        ownedCopies
-      });
-    }
+    const ownedCopies = albumCards.filter(c => c.card_id === card.id);
+    const isOwned = ownedCopies.length > 0 || card.is_registered;
+    setInspectedCard({
+      ...card,
+      is_registered: isOwned,
+      ownedCopies
+    });
   };
 
   return (
@@ -433,7 +430,6 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
           {filteredCards.map((card) => {
             const isOwned = card.is_registered;
-            const isRevealed = isOwned || !!debouncedSearchTerm.trim() || card.source === 'pokeapi_live' || !card.isPlaceholderRoster;
 
             return (
               <div
@@ -442,8 +438,6 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                 className={`rounded-2xl p-3 border text-center transition-all relative flex flex-col justify-between cursor-pointer group ${
                   isOwned
                     ? 'bg-[#0b1222] border-slate-800 hover:border-cyan-500/60 hover:scale-[1.02] shadow-sm hover:shadow-xl'
-                    : isRevealed
-                    ? 'bg-[#0b1222]/90 border-cyan-500/30 hover:border-cyan-500/70 hover:scale-[1.02] shadow-md'
                     : 'bg-[#080d19]/80 border-slate-850/80 hover:border-slate-700 hover:scale-[1.01]'
                 }`}
               >
@@ -454,13 +448,13 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                   </div>
                 )}
 
-                {/* Pokemon Artwork Viewport */}
+                {/* Pokemon Artwork Viewport - EN SOMBRA SI NO SE TIENE */}
                 <div className="h-28 flex items-center justify-center p-2 relative rounded-xl bg-slate-950/60 border border-slate-900 overflow-hidden">
                   <img
                     src={card.artwork_url}
-                    alt={isRevealed ? card.name : `Pokémon #${card.id}`}
+                    alt={isOwned ? card.name : `Pokémon #${card.id}`}
                     className={`max-h-full max-w-full object-contain filter transition-all duration-200 ${
-                      isRevealed 
+                      isOwned 
                         ? 'drop-shadow-[0_8px_12px_rgba(0,0,0,0.7)] group-hover:scale-110' 
                         : 'kanto-silhouette'
                     }`}
@@ -470,34 +464,27 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
                   />
                 </div>
 
-                {/* Info Text */}
+                {/* Info Text - NUNCA MOSTRAR NOMBRE SI NO SE TIENE */}
                 <div className="mt-2 pt-2 border-t border-slate-800/80">
                   <span className="text-[10px] font-mono text-slate-500 font-bold block">
                     #{card.id.toString().padStart(3, '0')}
                   </span>
                   
                   <h4 className="text-xs font-bold text-slate-100 truncate mt-0.5">
-                    {isRevealed ? card.name : (card.isPlaceholderRoster ? `??? (#${card.id})` : '???')}
+                    {isOwned ? card.name : `??? (#${card.id})`}
                   </h4>
 
-                  {isRevealed ? (
-                    <div className="space-y-1 mt-1">
-                      <div className="flex items-center justify-center gap-1">
-                        {card.types?.map((t, tidx) => (
-                          <span key={tidx} className="text-[9px] font-bold text-slate-300 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                      {!isOwned && (
-                        <span className="text-[8px] font-mono font-bold text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30 block">
-                          PokéAPI · Clic para ver
+                  {isOwned ? (
+                    <div className="flex items-center justify-center gap-1 mt-1">
+                      {card.types?.map((t, tidx) => (
+                        <span key={tidx} className="text-[9px] font-bold text-slate-300 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
+                          {t}
                         </span>
-                      )}
+                      ))}
                     </div>
                   ) : (
                     <span className="text-[9px] font-semibold text-slate-500 block mt-1 font-mono">
-                      {card.isPlaceholderRoster ? 'Pulsa para descubrir' : 'No registrado'}
+                      No registrado
                     </span>
                   )}
                 </div>
@@ -523,57 +510,68 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
 
             <div className="text-center space-y-1">
               <span className="text-xs font-mono font-bold text-slate-400">
-                #{inspectedCard.id.toString().padStart(3, '0')} · {inspectedCard.rarity?.toUpperCase() || 'COMÚN'}
+                #{inspectedCard.id.toString().padStart(3, '0')} · {inspectedCard.is_registered ? (inspectedCard.rarity?.toUpperCase() || 'COMÚN') : 'NO REGISTRADO'}
               </span>
               <h3 className="text-2xl font-black text-slate-100">
-                {inspectedCard.name}
+                {inspectedCard.is_registered ? inspectedCard.name : `??? (#${inspectedCard.id})`}
               </h3>
               
               <div className="flex justify-center gap-1.5">
-                {inspectedCard.types?.map((t, idx) => (
-                  <span key={idx} className="text-xs font-bold bg-slate-900 text-cyan-400 px-2.5 py-0.5 rounded-full border border-slate-750">
-                    {t}
+                {inspectedCard.is_registered ? (
+                  inspectedCard.types?.map((t, idx) => (
+                    <span key={idx} className="text-xs font-bold bg-slate-900 text-cyan-400 px-2.5 py-0.5 rounded-full border border-slate-750">
+                      {t}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs font-mono font-bold bg-slate-900 text-slate-500 px-3 py-0.5 rounded-full border border-slate-800">
+                    Tipo Desconocido
                   </span>
-                ))}
+                )}
               </div>
             </div>
 
-            {/* Sprite Animado de PokéAPI Showdown */}
+            {/* Viewport: EN SOMBRA SI NO SE TIENE */}
             <div className="h-44 bg-gradient-to-b from-slate-900 to-gray-950 rounded-2xl flex items-center justify-center relative p-3 border border-slate-800 shadow-inner">
               <img
                 src={
-                  inspectedCard.animated_front_url ||
-                  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${inspectedCard.id}.gif`
+                  inspectedCard.is_registered
+                    ? (inspectedCard.animated_front_url || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${inspectedCard.id}.gif`)
+                    : inspectedCard.artwork_url
                 }
-                alt={inspectedCard.name}
-                className="max-h-36 object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
+                alt={inspectedCard.is_registered ? inspectedCard.name : `Pokémon #${inspectedCard.id}`}
+                className={`max-h-36 object-contain filter ${
+                  inspectedCard.is_registered
+                    ? 'drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]'
+                    : 'kanto-silhouette'
+                }`}
                 onError={(e) => {
                   e.target.src = inspectedCard.artwork_url;
                 }}
               />
             </div>
 
-            {/* Base Stats Preview */}
+            {/* Base Stats Preview: OCULTOS SI NO SE TIENE */}
             <div className="grid grid-cols-4 gap-2 text-center text-xs font-mono">
               <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
                 <span className="block text-[10px] text-slate-500 font-bold">HP BASE</span>
-                <span className="font-bold text-slate-200">{inspectedCard.hp_base || 60}</span>
+                <span className="font-bold text-slate-200">{inspectedCard.is_registered ? (inspectedCard.hp_base || 60) : '???'}</span>
               </div>
               <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
                 <span className="block text-[10px] text-slate-500 font-bold">ATQ</span>
-                <span className="font-bold text-slate-200">{inspectedCard.atk_base || 60}</span>
+                <span className="font-bold text-slate-200">{inspectedCard.is_registered ? (inspectedCard.atk_base || 60) : '???'}</span>
               </div>
               <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
                 <span className="block text-[10px] text-slate-500 font-bold">DEF</span>
-                <span className="font-bold text-slate-200">{inspectedCard.def || 50}</span>
+                <span className="font-bold text-slate-200">{inspectedCard.is_registered ? (inspectedCard.def || 50) : '???'}</span>
               </div>
               <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
                 <span className="block text-[10px] text-slate-500 font-bold">SPD</span>
-                <span className="font-bold text-slate-200">{inspectedCard.spd || 50}</span>
+                <span className="font-bold text-slate-200">{inspectedCard.is_registered ? (inspectedCard.spd || 50) : '???'}</span>
               </div>
             </div>
 
-            {/* Si está registrado, mostrar copias y sus ataques variados */}
+            {/* Si está registrado, mostrar copias y sus ataques variados; si no, mensaje de no registrado */}
             {inspectedCard.is_registered ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-400">
@@ -617,23 +615,21 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
               </div>
             ) : (
               <div className="space-y-3 text-center">
-                <div className="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 space-y-1">
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
                   <div className="flex items-center justify-center space-x-1.5 font-bold text-amber-400">
-                    <Sparkles size={14} />
-                    <span>Pokémon Descubierto en PokéAPI</span>
+                    <AlertTriangle size={15} />
+                    <span>Pokémon No Registrado</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Puedes incorporar esta carta a tu álbum para configurarla en tu equipo de 3 y utilizarla en combates.
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    Aún no has obtenido esta carta para tu álbum. Abre sobres en la Tienda o realiza intercambios con otros entrenadores para registrarlo en tu Pokédex.
                   </p>
                 </div>
 
                 <button
-                  onClick={() => handleClaimPokemon(inspectedCard)}
-                  disabled={claimLoading}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-50 text-cyan-300 border border-cyan-500/50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-2"
+                  onClick={() => setInspectedCard(null)}
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs transition-all"
                 >
-                  <PlusCircle size={15} />
-                  <span>{claimLoading ? 'Incorporando a tu mazo...' : 'Reclamar e Incorporar a mi Colección'}</span>
+                  Cerrar
                 </button>
               </div>
             )}
