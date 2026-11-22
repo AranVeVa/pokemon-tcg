@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { showAlert } from '../utils/gameAlert';
 import confetti from 'canvas-confetti';
 import { X, CreditCard, Lock, CheckCircle2, ShieldCheck } from 'lucide-react';
 
@@ -65,7 +66,7 @@ export default function StripeCheckoutModal({ initialProductId = 'pass_premium',
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
       await refreshUser();
     } catch (err) {
-      alert(`Error en el pago: ${err.message}`);
+      showAlert.error('Error en el Pago', err.message);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { showAlert } from '../utils/gameAlert';
 import confetti from 'canvas-confetti';
 import { 
   X, 
@@ -147,7 +148,7 @@ export default function BattleArenaModal({
         `¡Adelante, ${userActive.name}! (IV: ${userActive.iv_percentage || 85}%).`
       ]);
     } catch (err) {
-      alert(`Error al iniciar combate: ${err.message}`);
+      showAlert.error('Error al iniciar', err.message);
       onClose();
     } finally {
       setLoading(false);
@@ -197,7 +198,7 @@ export default function BattleArenaModal({
     if (isGameOver || actionLoading || turn !== 'player' || mustSwitchCard) return;
     
     if (move.category === 'charged' && energy < (move.energyCost || 45)) {
-      alert(`Requiere ${move.energyCost || 45} de Energía para ${move.name}.`);
+      showAlert.warning('Energía Insuficiente', `Requiere ${move.energyCost || 45} de Energía para ${move.name}.`);
       return;
     }
 
@@ -508,7 +509,67 @@ export default function BattleArenaModal({
       }, 750);
 
     } catch (err) {
-      alert(`No se pudo usar el objeto: ${err.message}`);
+      showAlert.error('Objeto no disponible', err.message);
+      setActionLoading(false);
+    }
+  };
+
+  // Poción de Curación en Combate (+50 HP) — Consume el turno del jugador
+  const handleUseFieldPotion = async () => {
+    if (isGameOver || actionLoading || mustSwitchCard) return;
+    const activeCard = activeCardRef.current || battleState.activeUserCard;
+    if (activeCard.current_hp >= activeCard.max_hp) {
+      showAlert.info('Salud Máxima', `${activeCard.name} ya tiene sus puntos de vida al 100%.`);
+      return;
+    }
+
+    setActionLoading(true);
+    battleAudio.playHeal?.();
+
+    try {
+      const res = await apiRequest('/battles/heal-card', 'POST', {
+        userCardId: activeCard.user_card_id,
+        healAmount: 50
+      });
+
+      const healedAmount = res.currentHp - activeCard.current_hp;
+      activeCard.current_hp = res.currentHp;
+      activeCardRef.current = { ...activeCard };
+
+      const updatedTeam = userTeamRef.current.map(c => 
+        c.user_card_id === activeCard.user_card_id ? { ...c, current_hp: res.currentHp } : c
+      );
+      userTeamRef.current = updatedTeam;
+
+      setBattleState(prev => ({
+        ...prev,
+        activeUserCard: { ...activeCard },
+        userTeam: updatedTeam
+      }));
+
+      setFloatingDamage({
+        text: `+${healedAmount} HP`,
+        extra: 'Poción Usada',
+        target: 'player',
+        isHeal: true
+      });
+
+      setBattleLogs(prev => [
+        ...prev,
+        `Usaste una Poción en ${activeCard.name}: recuperó +${healedAmount} HP. El rival aprovecha tu acción para atacar.`
+      ]);
+
+      setTimeout(() => {
+        setFloatingDamage(null);
+        setActiveMenuTab('attack');
+        setTurn('opp');
+        setTimeout(() => {
+          executeOpponentTurn(opponentHpRef.current, activeCardRef.current);
+        }, 700);
+      }, 750);
+
+    } catch (err) {
+      showAlert.error('Error al aplicar poción', err.message);
       setActionLoading(false);
     }
   };
@@ -519,7 +580,7 @@ export default function BattleArenaModal({
     
     // Si la carta seleccionada está debilitada
     if (targetCard.current_hp <= 0 && battleType === 'normal') {
-      alert(`${targetCard.name} está debilitado. Usa un Revivir en la mochila para devolverlo al combate.`);
+      showAlert.warning('Pokémon Debilitado', `${targetCard.name} no puede combatir. Usa objetos de revivir para recuperarlo.`);
       return;
     }
 
@@ -1088,8 +1149,35 @@ export default function BattleArenaModal({
           {/* TAB 3: MOCHILA DE ITEMS */}
           {/* ======================================================== */}
           {activeMenuTab === 'bag' && (
-            <div className="bg-slate-900/90 rounded-2xl p-3 border border-slate-800">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-slate-900/90 rounded-2xl p-3 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-xs">
+                <span className="font-bold text-slate-200">Objetos y Pociones</span>
+                <span className="text-[10px] text-amber-400 font-mono">* Usar una poción consume tu turno de combate</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Poción de Campo (+50 HP) */}
+                <div className="p-2.5 rounded-xl bg-slate-950 border border-emerald-500/40 flex items-center justify-between shadow-md">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+                      <Heart size={15} className="fill-emerald-400" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-100 block">Poción de Campo (+50 HP)</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">Curación de emergencia</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleUseFieldPotion}
+                    disabled={actionLoading || turn !== 'player' || mustSwitchCard || activeUserCard.current_hp >= activeUserCard.max_hp}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-black text-[11px] rounded-lg transition-all shadow-sm uppercase tracking-wide"
+                  >
+                    {activeUserCard.current_hp >= activeUserCard.max_hp ? 'HP Lleno' : 'Curar'}
+                  </button>
+                </div>
+
+                {/* Items del inventario */}
                 {items?.map((item) => (
                   <div 
                     key={item.item_key}
@@ -1103,7 +1191,7 @@ export default function BattleArenaModal({
                     <button
                       onClick={() => handleUseItemInBattle(item.item_key)}
                       disabled={actionLoading || turn !== 'player' || item.quantity <= 0 || mustSwitchCard}
-                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-emerald-400 border border-emerald-500/30 font-bold text-[11px] rounded-lg transition-all"
+                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-cyan-300 border border-cyan-500/30 font-bold text-[11px] rounded-lg transition-all"
                     >
                       Usar
                     </button>

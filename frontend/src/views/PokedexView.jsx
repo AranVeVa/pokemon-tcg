@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useDebounce } from '../hooks/useDebounce';
+import { showAlert } from '../utils/gameAlert';
 import { 
   Search, 
   Filter, 
@@ -40,17 +42,6 @@ const GENERATIONS = [
   { id: 'all', label: 'Todas las Gen', range: [1, 151], count: 151 }
 ];
 
-const FEATURED_MULTIVERSE = [
-  { name: 'Lucario', id: 448 },
-  { name: 'Greninja', id: 658 },
-  { name: 'Rayquaza', id: 384 },
-  { name: 'Lugia', id: 249 },
-  { name: 'Tyranitar', id: 248 },
-  { name: 'Garchomp', id: 445 },
-  { name: 'Mimikyu', id: 778 },
-  { name: 'Sylveon', id: 700 }
-];
-
 export default function PokedexView({ onSelectPokemonForUpgrade }) {
   const { user, refreshUser } = useAuth();
   const [cards, setCards] = useState([]);
@@ -58,6 +49,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
   const [totalRegistered, setTotalRegistered] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [selectedType, setSelectedType] = useState('Todos');
   const [selectedGen, setSelectedGen] = useState('gen1');
   const [inspectedCard, setInspectedCard] = useState(null);
@@ -104,19 +96,19 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
         });
       }
     } catch (err) {
-      alert(`No se encontró "${q}" en la PokéAPI: ${err.message}`);
+      showAlert.error('Pokémon no encontrado', `No se encontró "${q}" en los registros oficiales.`);
     } finally {
       setPokeApiSearching(false);
     }
   };
 
-  // Reclamar Pokémon descubierto de PokéAPI a la colección del usuario
+  // Reclamar Pokémon descubierto a la colección del usuario
   const handleClaimPokemon = async (card) => {
     setClaimLoading(true);
     try {
       const res = await apiRequest('/cards/claim-pokeapi-card', 'POST', { card });
       confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
-      alert(res.message);
+      showAlert.success('¡Pokémon Añadido!', res.message);
       await refreshUser();
       await fetchPokedex();
 
@@ -127,7 +119,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
         ownedCopies: [res.userCard, ...(prev.ownedCopies || [])]
       }));
     } catch (err) {
-      alert(`Error al reclamar carta: ${err.message}`);
+      showAlert.error('Error al reclamar', err.message);
     } finally {
       setClaimLoading(false);
     }
@@ -211,9 +203,11 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
   const rawRoster = buildRosterForGeneration();
 
   const filteredCards = rawRoster.filter((card) => {
+    const q = debouncedSearchTerm.toLowerCase().trim();
     const matchesSearch = 
-      card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.id.toString().includes(searchTerm);
+      !q ||
+      card.name.toLowerCase().includes(q) ||
+      card.id.toString().includes(q);
 
     const matchesType = 
       selectedType === 'Todos' || 
@@ -244,7 +238,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
           <div className="flex items-center space-x-2">
             <h1 className="text-2xl font-black text-slate-100 tracking-tight flex items-center space-x-2">
               <BookOpen size={24} className="text-cyan-400" />
-              <span>Pokédex de Kanto & Multiverso</span>
+              <span>Pokédex</span>
             </h1>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-900 text-cyan-400 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
               {currentGenObj.label} ({filteredCards.length} Especies)
@@ -255,31 +249,18 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
           </p>
         </div>
 
-        {/* Global Live PokéAPI Search Controls */}
+        {/* Search & Filter Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
-              placeholder="Buscar Pokémon o ID (#025)..."
+              placeholder="Buscar por nombre o número (#001)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleLivePokeApiSearch();
-              }}
-              className="pl-9 pr-4 py-2 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm w-52 sm:w-60"
+              className="pl-9 pr-4 py-2 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm w-60 sm:w-72"
             />
           </div>
-
-          <button
-            onClick={() => handleLivePokeApiSearch()}
-            disabled={pokeApiSearching || !searchTerm.trim()}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm flex items-center space-x-1.5 transition-all"
-            title="Buscar en la base de datos de PokéAPI en vivo"
-          >
-            <Globe size={14} className={pokeApiSearching ? 'animate-spin' : ''} />
-            <span>{pokeApiSearching ? 'Buscando...' : 'Buscar PokéAPI'}</span>
-          </button>
 
           <div className="relative">
             <select
@@ -295,24 +276,6 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
             </select>
           </div>
         </div>
-      </div>
-
-      {/* Quick Discovery Chips for Iconic Multi-Gen Pokémon */}
-      <div className="bg-[#0b1222] p-3 rounded-2xl border border-slate-800 flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-bold text-slate-400 flex items-center space-x-1 mr-1">
-          <Sparkles size={13} className="text-amber-400" />
-          <span>Multiverso Destacado:</span>
-        </span>
-        {FEATURED_MULTIVERSE.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => handleLivePokeApiSearch(item.name)}
-            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-850 hover:text-cyan-300 text-slate-300 rounded-lg font-bold border border-slate-800 shadow-sm transition-all flex items-center space-x-1 font-mono text-[11px]"
-          >
-            <span>{item.name}</span>
-            <span className="text-[10px] text-slate-500">#{item.id}</span>
-          </button>
-        ))}
       </div>
 
       {/* Generation Selector Tabs */}

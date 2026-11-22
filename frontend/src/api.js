@@ -1,5 +1,6 @@
-// API helper
-const API_BASE = '/api';
+// API helper: soporte híbrido para proxy local (/api) o backend en Render/producción (VITE_API_URL)
+const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.trim().replace(/\/$/, '') : '';
+const API_BASE = rawBase ? (rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`) : '/api';
 
 export function getAuthToken() {
   return localStorage.getItem('pokemon_tcg_token');

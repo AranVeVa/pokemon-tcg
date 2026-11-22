@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Shield,
-  Gift
+  Gift,
+  X
 } from 'lucide-react';
 
 export default function PacksShopView({ onOpenStripe }) {
@@ -535,15 +536,25 @@ export default function PacksShopView({ onOpenStripe }) {
               {openedCards.map((card, idx) => (
                 <div 
                   key={idx}
-                  className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 text-center relative flex flex-col justify-between holo-card"
+                  className="bg-[#0e1628] p-3 rounded-2xl border border-slate-750 text-center relative flex flex-col justify-between shadow-xl hover:border-cyan-500/60 hover:scale-105 transition-all"
                 >
-                  <div className="h-20 flex items-center justify-center">
-                    <img src={card.artwork_url} alt={card.name} className="max-h-full object-contain filter drop-shadow" />
+                  <div className="h-24 flex items-center justify-center p-1 bg-slate-950/70 rounded-xl border border-slate-900">
+                    <img 
+                      src={card?.artwork_url || card?.sprite_url || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'} 
+                      alt={card?.name || 'Pokémon'} 
+                      className="max-h-full max-w-full object-contain filter drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)]" 
+                    />
                   </div>
-                  <div className="mt-2 pt-1 border-t border-slate-850">
-                    <span className="text-[9px] font-mono text-slate-500 block">#{card.id.toString().padStart(3, '0')}</span>
-                    <h5 className="text-xs font-bold text-slate-200 truncate">{card.name}</h5>
-                    <span className="text-[8px] font-bold text-cyan-400 capitalize">{card.rarity}</span>
+                  <div className="mt-2 pt-1.5 border-t border-slate-800">
+                    <span className="text-[10px] font-mono text-cyan-400 font-bold block">
+                      #{card?.id ? card.id.toString().padStart(3, '0') : '???'}
+                    </span>
+                    <h5 className="text-xs font-black text-slate-100 truncate mt-0.5">
+                      {card?.name || 'Pokémon'}
+                    </h5>
+                    <span className="text-[9px] font-mono font-bold text-amber-400 capitalize block mt-0.5">
+                      {card?.rarity || 'Común'}
+                    </span>
                   </div>
                 </div>
               ))}

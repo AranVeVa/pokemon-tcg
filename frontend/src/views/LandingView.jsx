@@ -1,14 +1,14 @@
 import React from 'react';
-import { 
-  Heart, 
-  Diamond, 
-  Trophy, 
-  ArrowRight, 
-  Sparkles, 
-  ShieldCheck, 
-  Zap, 
-  Flame, 
-  Droplets, 
+import {
+  Heart,
+  Diamond,
+  Trophy,
+  ArrowRight,
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  Flame,
+  Droplets,
   Activity,
   Layers,
   Sword,
@@ -94,21 +94,21 @@ export default function LandingView({ onOpenAuth, onExplore }) {
 
   return (
     <div className="space-y-14 py-4 select-none">
-      
+
       {/* ======================================================== */}
       {/* 1. EDITORIAL & CINEMATIC HERO SECTION */}
       {/* ======================================================== */}
       <section className="bg-gradient-to-br from-[#0c1527] via-[#090f1d] to-[#060913] rounded-3xl p-6 sm:p-10 lg:p-12 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.7)] relative overflow-hidden">
-        
+
         {/* Subtle Ambient Radial Lighting */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full filter blur-[100px] pointer-events-none"></div>
         <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full filter blur-[100px] pointer-events-none"></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center relative z-10">
-          
+
           {/* Left Column: Title, Narrative & Strategic CTAs */}
           <div className="lg:col-span-7 space-y-6">
-            
+
             <div className="inline-flex items-center space-x-2 bg-slate-900/90 border border-cyan-500/30 text-cyan-400 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
               <Sparkles size={13} className="text-cyan-400" />
               <span className="tracking-wide uppercase text-[10px]">Juego Oficial Web de Cartas Coleccionables</span>
@@ -174,15 +174,15 @@ export default function LandingView({ onOpenAuth, onExplore }) {
 
           {/* Right Column: Layered 3D Protagonist Pokémon Showcase */}
           <div className="lg:col-span-5 relative flex items-center justify-center min-h-[340px]">
-            
+
             {/* Center Glowing Energy Core */}
             <div className="absolute w-64 h-64 bg-gradient-to-tr from-cyan-500/20 to-blue-600/20 rounded-full filter blur-2xl pointer-events-none"></div>
 
             {/* Background Layer Card (Tilted Left) */}
             <div className="absolute -left-2 sm:left-4 top-6 w-36 sm:w-44 h-52 sm:h-60 rounded-2xl bg-[#0d1629] border border-cyan-500/30 p-2.5 shadow-xl -rotate-12 transition-transform hover:-rotate-6 pointer-events-none opacity-60">
               <div className="w-full h-full rounded-xl bg-slate-950 flex flex-col items-center justify-center p-2 border border-slate-800">
-                <img 
-                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png" 
+                <img
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png"
                   alt="Charizard"
                   className="max-h-24 sm:max-h-28 object-contain filter drop-shadow opacity-90"
                 />
@@ -193,8 +193,8 @@ export default function LandingView({ onOpenAuth, onExplore }) {
             {/* Background Layer Card (Tilted Right) */}
             <div className="absolute -right-2 sm:right-4 bottom-6 w-36 sm:w-44 h-52 sm:h-60 rounded-2xl bg-[#0d1629] border border-purple-500/30 p-2.5 shadow-xl rotate-12 transition-transform hover:rotate-6 pointer-events-none opacity-60">
               <div className="w-full h-full rounded-xl bg-slate-950 flex flex-col items-center justify-center p-2 border border-slate-800">
-                <img 
-                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/150.png" 
+                <img
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/150.png"
                   alt="Mewtwo"
                   className="max-h-24 sm:max-h-28 object-contain filter drop-shadow opacity-90"
                 />
@@ -204,7 +204,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
 
             {/* Foreground Protagonist TCG Card (Pikachu Gold EX) */}
             <div className="relative z-10 w-48 sm:w-56 h-68 sm:h-80 rounded-2xl bg-gradient-to-b from-[#18263f] via-[#0d1629] to-[#070b14] border-2 border-amber-400/70 p-3 shadow-[0_20px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.25)] holo-card animate-float">
-              
+
               {/* Card Header */}
               <div className="flex items-center justify-between text-xs font-bold text-slate-200 border-b border-amber-500/30 pb-1.5">
                 <div className="flex items-center space-x-1.5">
@@ -219,8 +219,8 @@ export default function LandingView({ onOpenAuth, onExplore }) {
 
               {/* Artwork Viewport */}
               <div className="h-36 sm:h-44 my-2 rounded-xl bg-radial from-amber-500/10 via-slate-950 to-slate-950 border border-slate-800 flex items-center justify-center p-2 relative overflow-hidden">
-                <img 
-                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png" 
+                <img
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
                   alt="Pikachu Protagonista"
                   className="max-h-32 sm:max-h-38 object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]"
                 />
@@ -254,7 +254,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
       {/* 2. THE 4 FEATURED POKÉMON COLLECTOR CARDS */}
       {/* ======================================================== */}
       <section className="space-y-6">
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-100 tracking-tight flex items-center space-x-2">
@@ -276,7 +276,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
             const Icon = card.icon;
 
             return (
-              <div 
+              <div
                 key={card.id}
                 className={`tcg-card p-4 flex flex-col justify-between ${card.borderColor}`}
               >
@@ -299,8 +299,8 @@ export default function LandingView({ onOpenAuth, onExplore }) {
 
                   {/* Artwork Window with Radial Spotlight */}
                   <div className={`h-40 my-3 rounded-2xl bg-gradient-to-b ${card.typeGlow} bg-slate-950 border border-slate-850 flex items-center justify-center p-3 relative overflow-hidden group`}>
-                    <img 
-                      src={card.artwork} 
+                    <img
+                      src={card.artwork}
                       alt={card.name}
                       className="max-h-32 object-contain filter drop-shadow-[0_10px_15px_rgba(0,0,0,0.8)] transition-transform duration-300 group-hover:scale-110"
                     />
@@ -345,7 +345,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
+
           {/* Card 1: Jugador Gratuito */}
           <div className="bg-gradient-to-b from-[#0c1527] to-[#070b14] rounded-2xl p-6 border border-slate-800 hover:border-cyan-500/40 shadow-lg transition-all flex flex-col justify-between">
             <div className="space-y-3">
@@ -405,23 +405,6 @@ export default function LandingView({ onOpenAuth, onExplore }) {
             </div>
           </div>
 
-        </div>
-      </section>
-
-      {/* ======================================================== */}
-      {/* 4. ACADEMIC CREDENTIALS CERTIFICATE PLAQUE */}
-      {/* ======================================================== */}
-      <section className="bg-[#0b1222] rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl text-center max-w-3xl mx-auto space-y-3">
-        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest block">
-          Proyecto Integrador · Licenciatura en Tecnologías de la Información
-        </span>
-        <h2 className="text-lg sm:text-xl font-black text-slate-100 tracking-tight">
-          Universidad Vasco de Quiroga (UVAQ) · Programación Web
-        </h2>
-        <div className="text-xs text-slate-400 space-y-1 pt-1 font-mono">
-          <p><strong className="text-slate-300 font-sans">Catedrático:</strong> Nicolás Zamora Ramos</p>
-          <p><strong className="text-slate-300 font-sans">Alumna:</strong> Arantza Venegas Valencia (Matrícula: 20010164)</p>
-          <p><strong className="text-slate-300 font-sans">Entrega Oficial:</strong> Noviembre 2026 · Proyecto Pokémon TCG Web</p>
         </div>
       </section>
 

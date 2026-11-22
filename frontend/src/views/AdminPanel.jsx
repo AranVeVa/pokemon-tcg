@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useDebounce } from '../hooks/useDebounce';
+import { showAlert } from '../utils/gameAlert';
 import { 
   ShieldAlert, 
   Users, 
@@ -24,9 +26,11 @@ export default function AdminPanel() {
   const [usersList, setUsersList] = useState([]);
   const [userRoles, setUserRoles] = useState({});
   const [userSearch, setUserSearch] = useState('');
+  const debouncedUserSearch = useDebounce(userSearch, 350);
   
   const [cardsList, setCardsList] = useState([]);
   const [cardSearch, setCardSearch] = useState('');
+  const debouncedCardSearch = useDebounce(cardSearch, 350);
   const [editingCard, setEditingCard] = useState(null);
 
   const [configs, setConfigs] = useState({});
@@ -38,19 +42,19 @@ export default function AdminPanel() {
 
   useEffect(() => {
     fetchAdminData();
-  }, [adminTab]);
+  }, [adminTab, debouncedUserSearch, debouncedCardSearch]);
 
   const fetchAdminData = async () => {
     setLoading(true);
     try {
       if (adminTab === 'usuarios') {
-        const data = await apiRequest(`/admin/users?search=${encodeURIComponent(userSearch)}`);
+        const data = await apiRequest(`/admin/users?search=${encodeURIComponent(debouncedUserSearch)}`);
         setUsersList(data.users || []);
         const rolesMap = {};
         data.users?.forEach(u => { rolesMap[u.id] = u.role; });
         setUserRoles(rolesMap);
       } else if (adminTab === 'cartas') {
-        const data = await apiRequest(`/admin/cards?search=${encodeURIComponent(cardSearch)}`);
+        const data = await apiRequest(`/admin/cards?search=${encodeURIComponent(debouncedCardSearch)}`);
         setCardsList(data.cards || []);
       } else if (adminTab === 'probabilidades' || adminTab === 'temporadas') {
         const data = await apiRequest('/admin/config');
@@ -69,14 +73,13 @@ export default function AdminPanel() {
   // Guardar rol de usuario
   const handleSaveUserRole = async (targetUserId) => {
     setActionLoading(true);
-    setMessage({ text: '', type: '' });
     try {
       const role = userRoles[targetUserId];
       const res = await apiRequest(`/admin/users/${targetUserId}/role`, 'PUT', { role });
-      setMessage({ text: res.message, type: 'success' });
+      showAlert.success('Rol Actualizado', res.message);
       await fetchAdminData();
     } catch (err) {
-      setMessage({ text: err.message, type: 'error' });
+      showAlert.error('Error', err.message);
     } finally {
       setActionLoading(false);
     }
@@ -85,13 +88,12 @@ export default function AdminPanel() {
   // Guardar configuración de probabilidades o temporada
   const handleSaveConfig = async (key, value) => {
     setActionLoading(true);
-    setMessage({ text: '', type: '' });
     try {
       const res = await apiRequest(`/admin/config/${key}`, 'PUT', { value });
-      setMessage({ text: res.message, type: 'success' });
+      showAlert.success('Configuración Guardada', res.message);
       await fetchAdminData();
     } catch (err) {
-      setMessage({ text: err.message, type: 'error' });
+      showAlert.error('Error', err.message);
     } finally {
       setActionLoading(false);
     }
@@ -101,14 +103,13 @@ export default function AdminPanel() {
   const handleSaveCard = async (e) => {
     e.preventDefault();
     setActionLoading(true);
-    setMessage({ text: '', type: '' });
     try {
       const res = await apiRequest(`/admin/cards/${editingCard.id}`, 'PUT', editingCard);
-      setMessage({ text: res.message, type: 'success' });
+      showAlert.success('Carta Guardada', res.message);
       setEditingCard(null);
       await fetchAdminData();
     } catch (err) {
-      setMessage({ text: err.message, type: 'error' });
+      showAlert.error('Error al guardar carta', err.message);
     } finally {
       setActionLoading(false);
     }

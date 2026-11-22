@@ -445,4 +445,70 @@ router.post('/finish', authenticateToken, async (req, res) => {
   }
 });
 
+// Curar equipo completo en Centro Pokémon (fuera de combate)
+router.post('/heal-team', authenticateToken, async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Restaurar salud de todas las cartas de combate del usuario a su max_hp
+    await client.query(`
+      UPDATE user_cards
+      SET current_hp = max_hp
+      WHERE user_id = $1
+    `, [req.user.id]);
+
+    await client.query('COMMIT');
+    res.json({ message: '¡Equipo completamente curado y revitalizado en el Centro Pokémon!' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error al curar equipo:', error);
+    res.status(500).json({ error: 'Error al curar Pokémon' });
+  } finally {
+    client.release();
+  }
+});
+
+// Curar carta individual o en combate usando Poción
+router.post('/heal-card', authenticateToken, async (req, res) => {
+  const { userCardId, healAmount = 50 } = req.body;
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const cardRes = await client.query(`
+      SELECT id, current_hp, max_hp 
+      FROM user_cards 
+      WHERE id = $1 AND user_id = $2
+    `, [userCardId, req.user.id]);
+
+    if (cardRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Carta no encontrada en tu colección' });
+    }
+
+    const card = cardRes.rows[0];
+    const newHp = Math.min(card.max_hp, card.current_hp + healAmount);
+
+    await client.query(`
+      UPDATE user_cards 
+      SET current_hp = $1 
+      WHERE id = $2
+    `, [newHp, userCardId]);
+
+    await client.query('COMMIT');
+    res.json({
+      message: `¡Poción aplicada! Se recuperaron +${newHp - card.current_hp} HP.`,
+      currentHp: newHp,
+      maxHp: card.max_hp
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error al curar carta:', error);
+    res.status(500).json({ error: 'Error al aplicar curación' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

@@ -1,0 +1,24 @@
+services:
+  # Backend API en Render
+  - type: web
+    name: pokemon-tcg-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MODO_DEMO
+        value: "true"
+      - key: DATABASE_URL
+        sync: false # Pega aquí tu Connection String de Neon PostgreSQL
+      - key: RESEND_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false

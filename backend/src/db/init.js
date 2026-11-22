@@ -303,6 +303,27 @@ async function initDB() {
     `, [ashId, mistyId, dawnId]);
     console.log('✅ Historial de pagos de Stripe inicializado.');
 
+    // 13. Enriquecer todas las cartas de usuario con Movimientos y Stats
+    const { generateMovesForPokemon } = require('../data/movesList');
+    const existingCards = await client.query(`
+      SELECT uc.id, uc.card_id, uc.level, uc.max_hp, uc.atk, pc.name, pc.types, pc.hp_base, pc.atk_base
+      FROM user_cards uc
+      JOIN pokemon_cards pc ON uc.card_id = pc.id
+      WHERE uc.moves IS NULL OR uc.def IS NULL
+    `);
+    for (const card of existingCards.rows) {
+      const moves = generateMovesForPokemon(card.types, card.name);
+      const iv = Math.floor(70 + Math.random() * 31);
+      const def = Math.round(card.atk_base * 0.85 * (1 + (card.level - 1) * 0.20) * (iv / 100));
+      const spd = Math.round((card.hp_base + card.atk_base) * 0.5 * (iv / 100));
+      await client.query(`
+        UPDATE user_cards 
+        SET def = $1, spd = $2, iv_percentage = $3, moves = $4
+        WHERE id = $5
+      `, [def, spd, iv, JSON.stringify(moves), card.id]);
+    }
+    console.log(`✅ ${existingCards.rows.length} cartas de usuario enriquecidas con ataques y estadísticas tácticas.`);
+
     console.log('🎉 BASE DE DATOS INICIALIZADA EXITOSAMENTE 🎉');
   } catch (error) {
     console.error('❌ Error inicializando base de datos:', error);

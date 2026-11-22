@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useDebounce } from '../hooks/useDebounce';
+import { showAlert } from '../utils/gameAlert';
 import { 
   Users, 
   Search, 
@@ -33,6 +35,7 @@ export default function FriendsBattlesView() {
   const [teamSaveLoading, setTeamSaveLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 350);
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
@@ -44,6 +47,14 @@ export default function FriendsBattlesView() {
   useEffect(() => {
     fetchFriendsAndTeam();
   }, []);
+
+  useEffect(() => {
+    if (debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2) {
+      handleSearchDirect(debouncedSearchQuery.trim());
+    } else {
+      setSearchResults([]);
+    }
+  }, [debouncedSearchQuery]);
 
   const fetchFriendsAndTeam = async () => {
     setLoading(true);
@@ -68,29 +79,45 @@ export default function FriendsBattlesView() {
     }
   };
 
+  const handleSearchDirect = async (queryText) => {
+    if (!queryText) return;
+    setSearching(true);
+    try {
+      const data = await apiRequest(`/friends/search?query=${encodeURIComponent(queryText)}`);
+      setSearchResults(data.users || []);
+    } catch (err) {
+      console.warn('Error buscando usuarios:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const handleSearch = async (e) => {
     e?.preventDefault();
     if (!searchQuery.trim()) return;
-    setSearching(true);
+    handleSearchDirect(searchQuery.trim());
+  };
+
+  // Restaurar todo el equipo en el Centro Pokémon
+  const handleHealEntireTeam = async () => {
     try {
-      const data = await apiRequest(`/friends/search?query=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchResults(data.users || []);
+      const res = await apiRequest('/battles/heal-team', 'POST');
+      showAlert.success('Centro Pokémon', res.message);
+      await fetchFriendsAndTeam();
     } catch (err) {
-      setMessage({ text: err.message, type: 'error' });
-    } finally {
-      setSearching(false);
+      showAlert.error('Error al restaurar salud', err.message);
     }
   };
 
   const handleAddFriend = async (friendId) => {
     try {
       const res = await apiRequest('/friends/add', 'POST', { friendId });
-      setMessage({ text: res.message, type: 'success' });
+      showAlert.success('Amigo Agregado', res.message);
       setSearchQuery('');
       setSearchResults([]);
       await fetchFriendsAndTeam();
     } catch (err) {
-      setMessage({ text: err.message, type: 'error' });
+      showAlert.error('Error', err.message);
     }
   };
 
@@ -101,7 +128,7 @@ export default function FriendsBattlesView() {
   // Guardar la selección de 3 Pokémon
   const handleSaveTeamSelection = async () => {
     if (selectedTeamIds.length === 0) {
-      alert('Debes seleccionar al menos 1 Pokémon para tu equipo.');
+      showAlert.warning('Equipo Incompleto', 'Debes seleccionar al menos 1 Pokémon para tu equipo de combate.');
       return;
     }
     setTeamSaveLoading(true);
@@ -109,11 +136,11 @@ export default function FriendsBattlesView() {
       const res = await apiRequest('/battles/set-team', 'POST', {
         teamCardIds: selectedTeamIds
       });
-      setMessage({ text: res.message, type: 'success' });
+      showAlert.success('Equipo Guardado', res.message);
       setIsEditingTeam(false);
       await fetchFriendsAndTeam();
     } catch (err) {
-      alert(`Error al guardar equipo: ${err.message}`);
+      showAlert.error('Error al guardar equipo', err.message);
     } finally {
       setTeamSaveLoading(false);
     }
@@ -126,7 +153,7 @@ export default function FriendsBattlesView() {
     } else {
       // Si no está, agregar si son menos de 3
       if (selectedTeamIds.length >= 3) {
-        alert('Tu equipo ya tiene 3 Pokémon. Deselecciona uno primero para agregar otro.');
+        showAlert.info('Límite de Equipo', 'Tu equipo de combate ya tiene 3 Pokémon. Deselecciona uno primero.');
         return;
       }
       setSelectedTeamIds(prev => [...prev, userCardId]);
@@ -172,16 +199,27 @@ export default function FriendsBattlesView() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              setSelectedTeamIds(teamCards.map(c => c.user_card_id));
-              setIsEditingTeam(true);
-            }}
-            className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5 self-start sm:self-auto"
-          >
-            <Edit3 size={14} />
-            <span>Seleccionar los 3 Pokémon</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={handleHealEntireTeam}
+              className="px-4 py-2 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+              title="Restaurar al 100% la salud de todo tu equipo de Pokémon"
+            >
+              <Heart size={14} className="fill-emerald-400 text-emerald-400" />
+              <span>Centro Pokémon (Curar)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedTeamIds(teamCards.map(c => c.user_card_id));
+                setIsEditingTeam(true);
+              }}
+              className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+            >
+              <Edit3 size={14} />
+              <span>Seleccionar los 3 Pokémon</span>
+            </button>
+          </div>
         </div>
 
         {/* 3 Team Slots Grid */}

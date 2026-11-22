@@ -73,17 +73,6 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         })}
       </div>
 
-      {/* Footer Info Plaque */}
-      <div className="p-3 bg-slate-950/80 border border-slate-850 rounded-2xl text-xs space-y-1">
-        <div className="flex items-center space-x-1.5 text-cyan-400 font-bold text-[11px]">
-          <Sparkles size={13} />
-          <span>UVAQ · Prog. Web</span>
-        </div>
-        <p className="text-[10px] text-slate-400 leading-tight">
-          Pokémon TCG · 2026<br />
-          <span className="font-semibold text-slate-300">Arantza Venegas V.</span>
-        </p>
-      </div>
     </aside>
   );
 }

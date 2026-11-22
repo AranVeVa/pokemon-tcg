@@ -35,30 +35,6 @@ export default function Navbar({ onOpenAuth, onOpenStripe, activeTab, setActiveT
           </span>
         </div>
 
-        {/* Public Landing Links */}
-        {!user && (
-          <nav className="hidden md:flex items-center space-x-7 text-xs font-bold uppercase tracking-wider text-slate-400">
-            <button 
-              onClick={() => setActiveTab('landing')}
-              className="hover:text-cyan-400 transition-colors"
-            >
-              Cómo funciona
-            </button>
-            <button 
-              onClick={() => setActiveTab('landing')} 
-              className="hover:text-cyan-400 transition-colors"
-            >
-              Pase de Batalla
-            </button>
-            <button 
-              onClick={() => setActiveTab('landing')} 
-              className="hover:text-cyan-400 transition-colors"
-            >
-              PokéGemas
-            </button>
-          </nav>
-        )}
-
         {/* Action / User Bar */}
         <div className="flex items-center space-x-3 sm:space-x-4">
           {user ? (

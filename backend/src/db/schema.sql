@@ -53,6 +53,10 @@ CREATE TABLE user_cards (
   current_hp INT NOT NULL,
   max_hp INT NOT NULL,
   atk INT NOT NULL,
+  def INT DEFAULT 50,
+  spd INT DEFAULT 50,
+  iv_percentage INT DEFAULT 85,
+  moves JSONB DEFAULT '[]'::jsonb,
   is_in_team BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
