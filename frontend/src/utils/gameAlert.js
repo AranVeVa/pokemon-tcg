@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 const GameSwal = Swal.mixin({
   background: '#0b1222',
   color: '#f8fafc',
+  width: 'min(92vw, 28rem)',
   confirmButtonColor: '#0284c7', // cyan-600
   cancelButtonColor: '#334155',  // slate-700
   denyButtonColor: '#e11d48',    // rose-600

@@ -18,12 +18,21 @@ export default function App() {
   
   // Navigation State: landing, sobres-tienda, pokedex, pase-batalla, amigos-retos, mejorar-evolucionar, super-admin
   const [activeTab, setActiveTab] = useState('sobres-tienda');
+  const [shopSubTab, setShopSubTab] = useState('sobres');
+  const [friendsSubTab, setFriendsSubTab] = useState('amigos');
   const [authModalMode, setAuthModalMode] = useState(null); // 'login' | 'register' | null
   const [showStripeModal, setShowStripeModal] = useState(false);
   const [upgradeSelectedPokemonId, setUpgradeSelectedPokemonId] = useState(7); // Squirtle por defecto
 
   const isPublicTab = activeTab === 'landing';
   const showLanding = !user || isPublicTab;
+
+  // Si inicia sesión estando en landing, pasar directo a Sobres y Tienda
+  useEffect(() => {
+    if (user && activeTab === 'landing') {
+      setActiveTab('sobres-tienda');
+    }
+  }, [user, activeTab]);
 
   useEffect(() => {
     if (!loading) {
@@ -32,9 +41,16 @@ export default function App() {
     }
   }, [activeTab, showLanding, loading]);
 
+  const navigateToTab = (tab, opts = {}) => {
+    if (opts.shopSubTab) setShopSubTab(opts.shopSubTab);
+    if (opts.friendsSubTab) setFriendsSubTab(opts.friendsSubTab);
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSelectPokemonForUpgrade = (pokemonId) => {
     setUpgradeSelectedPokemonId(pokemonId);
-    setActiveTab('mejorar-evolucionar');
+    navigateToTab('mejorar-evolucionar');
   };
 
   if (loading) {
@@ -49,22 +65,23 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen pokemon-route-bg text-slate-100 flex flex-col font-sans">
+      <div className="pokemon-grass-horizon" aria-hidden="true" />
       
       {/* Top Navbar */}
       <Navbar 
         onOpenAuth={(mode) => setAuthModalMode(mode)}
         onOpenStripe={() => setShowStripeModal(true)}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => navigateToTab(tab)}
       />
 
       {/* Main Layout */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto relative z-10">
         
-        {/* Left Sidebar (Only visible when user is logged in or navigating internal modules) */}
+        {/* Left Sidebar (Only visible when user is logged in) */}
         {user && !isPublicTab && (
-          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+          <Sidebar activeTab={activeTab} setActiveTab={(tab) => navigateToTab(tab)} />
         )}
 
         {/* Content Area */}
@@ -74,7 +91,7 @@ export default function App() {
             <LandingView 
               onOpenAuth={(mode) => setAuthModalMode(mode)}
               onExplore={(tab) => {
-                setActiveTab(tab);
+                navigateToTab(tab);
                 if (!user) setAuthModalMode('login');
               }}
             />
@@ -83,7 +100,11 @@ export default function App() {
           {user && !isPublicTab && (
             <>
               {activeTab === 'sobres-tienda' && (
-                <PacksShopView onOpenStripe={() => setShowStripeModal(true)} />
+                <PacksShopView
+                  initialSubTab={shopSubTab}
+                  onSubTabChange={setShopSubTab}
+                  onOpenStripe={() => setShowStripeModal(true)}
+                />
               )}
 
               {activeTab === 'pokedex' && (
@@ -91,7 +112,12 @@ export default function App() {
               )}
 
               {activeTab === 'mejorar-evolucionar' && (
-                <UpgradeEvolveView initialPokemonId={upgradeSelectedPokemonId} />
+                <UpgradeEvolveView
+                  initialPokemonId={upgradeSelectedPokemonId}
+                  onGoToShop={(sub) => navigateToTab('sobres-tienda', { shopSubTab: sub || 'sobres' })}
+                  onGoToTrades={() => navigateToTab('amigos-retos', { friendsSubTab: 'intercambios' })}
+                  onOpenStripe={() => setShowStripeModal(true)}
+                />
               )}
 
               {activeTab === 'pase-batalla' && (
@@ -99,7 +125,10 @@ export default function App() {
               )}
 
               {activeTab === 'amigos-retos' && (
-                <FriendsBattlesView />
+                <FriendsBattlesView
+                  initialSubTab={friendsSubTab}
+                  onSubTabChange={setFriendsSubTab}
+                />
               )}
 
               {activeTab === 'super-admin' && (

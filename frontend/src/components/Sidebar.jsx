@@ -5,7 +5,6 @@ import {
   Trophy, 
   Users, 
   Flame, 
-  Home, 
   ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +13,6 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   const { user } = useAuth();
 
   const menuItems = [
-    { id: 'landing', label: 'Inicio', shortLabel: 'Inicio', icon: Home },
     { id: 'sobres-tienda', label: 'Sobres y Tienda', shortLabel: 'Tienda', icon: Package },
     { id: 'pokedex', label: 'Pokédex', shortLabel: 'Pokédex', icon: BookOpen },
     { id: 'pase-batalla', label: 'Pase de Batalla', shortLabel: 'Pase', icon: Trophy },

@@ -20,9 +20,20 @@ import BattleArenaModal from './BattleArenaModal';
 import TradesView from './TradesView';
 import TradeProposalModal from './TradeProposalModal';
 
-export default function FriendsBattlesView() {
+export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabChange }) {
   const { user } = useAuth();
-  const [subTab, setSubTab] = useState('amigos'); // 'amigos' | 'intercambios'
+  const [subTab, setSubTab] = useState(initialSubTab); // 'amigos' | 'intercambios'
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  const changeSubTab = (next) => {
+    setSubTab(next);
+    if (onSubTabChange) onSubTabChange(next);
+  };
   const [friends, setFriends] = useState([]);
   const [incomingFriendRequests, setIncomingFriendRequests] = useState([]);
   const [sentFriendRequests, setSentFriendRequests] = useState([]);
@@ -276,7 +287,7 @@ export default function FriendsBattlesView() {
 
         <div className="inline-flex bg-slate-900 p-1 rounded-xl self-start sm:self-auto border border-slate-800 max-w-full">
           <button
-            onClick={() => setSubTab('amigos')}
+            onClick={() => changeSubTab('amigos')}
             className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
               subTab === 'amigos' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -285,7 +296,7 @@ export default function FriendsBattlesView() {
             <span>Amigos y Retos</span>
           </button>
           <button
-            onClick={() => setSubTab('intercambios')}
+            onClick={() => changeSubTab('intercambios')}
             className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
               subTab === 'intercambios' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}

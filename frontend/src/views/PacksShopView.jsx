@@ -28,9 +28,20 @@ const RARITY_STYLES = {
   legendario: 'bg-amber-950/70 text-amber-300 border-amber-500/40'
 };
 
-export default function PacksShopView({ onOpenStripe }) {
+export default function PacksShopView({ onOpenStripe, initialSubTab = 'sobres', onSubTabChange }) {
   const { user, refreshUser } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState('sobres'); // 'sobres' | 'pokegemas' | 'items'
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab); // 'sobres' | 'pokegemas' | 'items'
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  const changeSubTab = (next) => {
+    setActiveSubTab(next);
+    if (onSubTabChange) onSubTabChange(next);
+  };
   
   // Timer State
   const [secondsRemaining, setSecondsRemaining] = useState(0);
@@ -238,7 +249,7 @@ export default function PacksShopView({ onOpenStripe }) {
         {/* Subtabs: [Sobres] [Mochila e Ítems] [PokéGemas] */}
         <div className="inline-flex flex-wrap bg-slate-900 p-1 rounded-xl self-start sm:self-auto border border-slate-800 gap-1 max-w-full">
           <button
-            onClick={() => setActiveSubTab('sobres')}
+            onClick={() => changeSubTab('sobres')}
             className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeSubTab === 'sobres' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -246,7 +257,7 @@ export default function PacksShopView({ onOpenStripe }) {
             Sobres
           </button>
           <button
-            onClick={() => setActiveSubTab('items')}
+            onClick={() => changeSubTab('items')}
             className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 ${
               activeSubTab === 'items' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -255,7 +266,7 @@ export default function PacksShopView({ onOpenStripe }) {
             <span>Mochila e Ítems</span>
           </button>
           <button
-            onClick={() => setActiveSubTab('pokegemas')}
+            onClick={() => changeSubTab('pokegemas')}
             className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeSubTab === 'pokegemas' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -274,220 +285,227 @@ export default function PacksShopView({ onOpenStripe }) {
         </div>
       )}
 
-      {/* 1. SOBRE GRATUITO */}
-      <section className="bg-gradient-to-r from-[#0c1527] via-[#090f1d] to-[#060913] rounded-3xl p-4 sm:p-7 border border-slate-800 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-5">
-          
-          <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6">
-            <div className="relative w-28 h-36 bg-gradient-to-br from-[#12203a] to-[#091122] rounded-2xl p-2 shadow-2xl border border-cyan-500/40 flex flex-col items-center justify-center overflow-hidden shrink-0">
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-950/90 text-cyan-300 px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold tracking-wider border border-cyan-500/30 shadow">
-                {canClaimFree ? '00:00:00' : formatTimer(secondsRemaining)}
-              </div>
-
-              <img 
-                src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png" 
-                alt="Sobre gratuito"
-                className={`w-20 h-20 object-contain mt-3 filter drop-shadow ${canClaimFree ? 'animate-bounce' : ''}`}
-              />
-
-              <div className="text-[10px] font-black text-slate-300 uppercase tracking-wider mt-1 font-mono">
-                Sobre Gratis
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="inline-flex items-center space-x-1.5 text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full">
-                <Clock size={12} />
-                <span>Disponible cada {intervaloMinutos >= 60 ? `${intervaloMinutos / 60} horas` : `${intervaloMinutos} minutos`}</span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-100">Sobre Gratuito</h2>
-              <p className="text-xs text-slate-400">
-                Ábrelo sin costo cuando acabe el temporizador: 5 cartas (baja chance de evolucionados) y 28% de ítem básico.
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full md:w-auto flex justify-center">
-            <button
-              onClick={handleOpenFreePack}
-              disabled={(!canClaimFree && secondsRemaining > 0) || loadingAction}
-              className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm uppercase tracking-wider transition-all ${
-                canClaimFree
-                  ? 'bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-cyan-500/50 shadow-lg shadow-cyan-950 hover:scale-105'
-                  : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed shadow-none'
-              }`}
-            >
-              {loadingAction ? 'Abriendo...' : canClaimFree ? 'Abrir Sobre Gratis' : 'Esperando Recarga'}
-            </button>
-          </div>
-
-        </div>
-      </section>
-
-      {/* Banner Sobre Diario Premium */}
-      {(user?.role === 'Premium' || user?.role === 'Admin') && (
-        <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-500/50 text-amber-400 flex items-center justify-center font-black shrink-0">
-              <Gift size={20} />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-amber-300">Sobre Diario Premium (Beneficio Activo)</h4>
-              <p className="text-[11px] text-slate-400">Incluye altas tasas de evolucionados y 85% de probabilidad de ítem o Prisma.</p>
-            </div>
-          </div>
-          <button
-            onClick={handleClaimDailyPremium}
-            disabled={!canClaimDailyPremium || loadingAction}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all self-start sm:self-auto shrink-0 ${
-              canClaimDailyPremium
-                ? 'bg-slate-800 hover:bg-slate-750 text-amber-300 border border-amber-500/50 shadow-md'
-                : 'bg-slate-950 text-slate-600 border border-slate-800 cursor-not-allowed'
-            }`}
-          >
-            {canClaimDailyPremium ? 'Reclamar Sobre Hoy' : 'Ya Reclamado Hoy'}
-          </button>
-        </div>
-      )}
-
-      {/* 2. CATÁLOGO DE SOBRES */}
+      {/* ======================================================== */}
+      {/* 1 y 2. SOBRE GRATUITO, DIARIO Y CATÁLOGO DE SOBRES       */}
+      {/* (Solo dentro de la sub-pestaña Sobres para que en móvil  */}
+      {/*  Mochila e Ítems y PokéGemas aparezcan de inmediato)     */}
+      {/* ======================================================== */}
       {activeSubTab === 'sobres' && (
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          
-          {/* Sobre Normal */}
-          <div className="bg-[#0b1222] rounded-3xl p-5 border border-slate-800 shadow-xl hover:border-slate-700 transition-all flex flex-col justify-between">
-            <div className="space-y-4">
-              <div className="h-40 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
-                <span className="absolute top-3 left-3 bg-slate-900 text-slate-300 border border-slate-750 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
-                  Común
-                </span>
-                <img 
-                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png" 
-                  alt="Sobre Normal"
-                  className="w-28 h-28 object-contain filter drop-shadow hover:scale-105 transition-transform"
-                />
+        <>
+          {/* 1. SOBRE GRATUITO */}
+          <section className="bg-gradient-to-r from-[#0c1527] via-[#090f1d] to-[#060913] rounded-3xl p-4 sm:p-7 border border-slate-800 shadow-xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-5">
+              
+              <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6">
+                <div className="relative w-28 h-36 bg-gradient-to-br from-[#12203a] to-[#091122] rounded-2xl p-2 shadow-2xl border border-cyan-500/40 flex flex-col items-center justify-center overflow-hidden shrink-0">
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-950/90 text-cyan-300 px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold tracking-wider border border-cyan-500/30 shadow">
+                    {canClaimFree ? '00:00:00' : formatTimer(secondsRemaining)}
+                  </div>
+
+                  <img 
+                    src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png" 
+                    alt="Sobre gratuito"
+                    className={`w-20 h-20 object-contain mt-3 filter drop-shadow ${canClaimFree ? 'animate-bounce' : ''}`}
+                  />
+
+                  <div className="text-[10px] font-black text-slate-300 uppercase tracking-wider mt-1 font-mono">
+                    Sobre Gratis
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="inline-flex items-center space-x-1.5 text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full">
+                    <Clock size={12} />
+                    <span>Disponible cada {intervaloMinutos >= 60 ? `${intervaloMinutos / 60} horas` : `${intervaloMinutos} minutos`}</span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-100">Sobre Gratuito</h2>
+                  <p className="text-xs text-slate-400">
+                    Ábrelo sin costo cuando acabe el temporizador: 5 cartas (baja chance de Pokémon evolucionados) y 28% de ítem básico.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <h3 className="text-base font-bold text-slate-100">Sobre Normal</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  5 cartas (~78% básicas, baja chance de evolucionadas) + 45% de probabilidad de ítem (pociones comunes o raro Prisma).
-                </p>
+              <div className="w-full md:w-auto flex justify-center">
+                <button
+                  onClick={handleOpenFreePack}
+                  disabled={(!canClaimFree && secondsRemaining > 0) || loadingAction}
+                  className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm uppercase tracking-wider transition-all ${
+                    canClaimFree
+                      ? 'bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-cyan-500/50 shadow-lg shadow-cyan-950 hover:scale-105'
+                      : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed shadow-none'
+                  }`}
+                >
+                  {loadingAction ? 'Abriendo...' : canClaimFree ? 'Abrir Sobre Gratis' : 'Esperando Recarga'}
+                </button>
               </div>
+
             </div>
+          </section>
 
-            <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
-              <div className="flex items-center space-x-1.5 text-amber-300 font-mono font-bold text-sm">
-                <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[10px]">
-                  P
-                </span>
-                <span>1,200</span>
+          {/* Banner Sobre Diario Premium */}
+          {(user?.role === 'Premium' || user?.role === 'Admin') && (
+            <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-500/50 text-amber-400 flex items-center justify-center font-black shrink-0">
+                  <Gift size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-amber-300">Sobre Diario Premium (Beneficio Activo)</h4>
+                  <p className="text-[11px] text-slate-400">Incluye altas tasas de Pokémon evolucionados y 85% de probabilidad de ítem o Prisma.</p>
+                </div>
               </div>
-
               <button
-                onClick={() => handleBuyPack('normal', 'coins')}
-                disabled={loadingAction || (user?.coins || 0) < 1200}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl shadow-sm transition-all"
+                onClick={handleClaimDailyPremium}
+                disabled={!canClaimDailyPremium || loadingAction}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all self-start sm:self-auto shrink-0 ${
+                  canClaimDailyPremium
+                    ? 'bg-slate-800 hover:bg-slate-750 text-amber-300 border border-amber-500/50 shadow-md'
+                    : 'bg-slate-950 text-slate-600 border border-slate-800 cursor-not-allowed'
+                }`}
               >
-                Comprar
+                {canClaimDailyPremium ? 'Reclamar Sobre Hoy' : 'Ya Reclamado Hoy'}
               </button>
             </div>
-          </div>
+          )}
 
-          {/* Sobre Especial */}
-          <div className="bg-[#0b1222] rounded-3xl p-5 border border-purple-500/30 shadow-xl hover:border-purple-500/50 transition-all flex flex-col justify-between">
-            <div className="space-y-4">
-              <div className="h-40 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
-                <span className="absolute top-3 left-3 bg-purple-950 text-purple-300 border border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
-                  Especial
-                </span>
-                <img 
-                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png" 
-                  alt="Sobre Especial"
-                  className="w-28 h-28 object-contain filter drop-shadow hover:scale-105 transition-transform"
-                />
+          {/* 2. CATÁLOGO DE SOBRES */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            
+            {/* Sobre Normal */}
+            <div className="bg-[#0b1222] rounded-3xl p-5 border border-slate-800 shadow-xl hover:border-slate-700 transition-all flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="h-40 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
+                  <span className="absolute top-3 left-3 bg-slate-900 text-slate-300 border border-slate-750 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
+                    Común
+                  </span>
+                  <img 
+                    src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png" 
+                    alt="Sobre Normal"
+                    className="w-28 h-28 object-contain filter drop-shadow hover:scale-105 transition-transform"
+                  />
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">Sobre Normal</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    5 cartas (~78% básicos, baja chance de evolucionados) + 45% de probabilidad de ítem (pociones comunes o raro Prisma).
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <h3 className="text-base font-bold text-slate-100">Sobre Especial</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  5 cartas (~55% evolucionadas y raras, 3% legendarias) + 80% de probabilidad de ítems y mayor opción de Prismas Evolutivos.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-1.5 text-amber-300 font-mono font-bold text-sm">
                   <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[10px]">
                     P
                   </span>
-                  <span>8,000</span>
+                  <span>1,200</span>
                 </div>
+
                 <button
-                  onClick={() => handleBuyPack('especial', 'coins')}
-                  disabled={loadingAction || (user?.coins || 0) < 8000}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-purple-300 border border-purple-500/40 text-xs font-bold rounded-xl transition-all"
+                  onClick={() => handleBuyPack('normal', 'coins')}
+                  disabled={loadingAction || (user?.coins || 0) < 1200}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl shadow-sm transition-all"
                 >
-                  Monedas
+                  Comprar
                 </button>
               </div>
+            </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-slate-850">
+            {/* Sobre Especial */}
+            <div className="bg-[#0b1222] rounded-3xl p-5 border border-purple-500/30 shadow-xl hover:border-purple-500/50 transition-all flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="h-40 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
+                  <span className="absolute top-3 left-3 bg-purple-950 text-purple-300 border border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
+                    Especial
+                  </span>
+                  <img 
+                    src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png" 
+                    alt="Sobre Especial"
+                    className="w-28 h-28 object-contain filter drop-shadow hover:scale-105 transition-transform"
+                  />
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">Sobre Especial</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    5 cartas (~55% Pokémon evolucionados y raros, 3% legendarios) + 80% de probabilidad de ítems y mayor opción de Prismas Evolutivos.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 text-amber-300 font-mono font-bold text-sm">
+                    <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[10px]">
+                      P
+                    </span>
+                    <span>8,000</span>
+                  </div>
+                  <button
+                    onClick={() => handleBuyPack('especial', 'coins')}
+                    disabled={loadingAction || (user?.coins || 0) < 8000}
+                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-purple-300 border border-purple-500/40 text-xs font-bold rounded-xl transition-all"
+                  >
+                    Monedas
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-850">
+                  <div className="flex items-center space-x-1.5 text-cyan-300 font-mono font-bold text-sm">
+                    <span className="w-3 h-3 rotate-45 bg-cyan-400 rounded-xs inline-block"></span>
+                    <span>150</span>
+                  </div>
+                  <button
+                    onClick={() => handleBuyPack('especial', 'gems')}
+                    disabled={loadingAction || (user?.gems || 0) < 150}
+                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl transition-all"
+                  >
+                    Gemas
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Sobre Legendario */}
+            <div className="bg-[#0b1222] rounded-3xl p-5 border border-amber-500/30 shadow-xl hover:border-amber-500/50 transition-all flex flex-col justify-between relative overflow-hidden">
+              <div className="space-y-4">
+                <div className="h-40 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
+                  <span className="absolute top-3 left-3 bg-amber-950 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
+                    Legendario
+                  </span>
+                  <img 
+                    src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/144.png" 
+                    alt="Sobre Legendario"
+                    className="w-28 h-28 object-contain filter drop-shadow hover:scale-105 transition-transform"
+                  />
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">Sobre Legendario</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    1 Legendario garantizado + alto índice de etapas evolucionadas + 100% ítem asegurado (mejor tasa de Prismas).
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-1.5 text-cyan-300 font-mono font-bold text-sm">
-                  <span className="w-3 h-3 rotate-45 bg-cyan-400 rounded-xs inline-block"></span>
-                  <span>150</span>
+                  <span className="w-3.5 h-3.5 rotate-45 bg-cyan-400 rounded-xs inline-block"></span>
+                  <span>400</span>
                 </div>
+
                 <button
-                  onClick={() => handleBuyPack('especial', 'gems')}
-                  disabled={loadingAction || (user?.gems || 0) < 150}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-cyan-300 border border-cyan-500/40 text-xs font-bold rounded-xl transition-all"
+                  onClick={() => handleBuyPack('legendario', 'gems')}
+                  disabled={loadingAction || (user?.gems || 0) < 400}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-amber-300 border border-amber-500/40 text-xs font-bold rounded-xl shadow transition-all"
                 >
-                  Gemas
+                  Comprar
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Sobre Legendario */}
-          <div className="bg-[#0b1222] rounded-3xl p-5 border border-amber-500/30 shadow-xl hover:border-amber-500/50 transition-all flex flex-col justify-between relative overflow-hidden">
-            <div className="space-y-4">
-              <div className="h-40 bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden border border-slate-850">
-                <span className="absolute top-3 left-3 bg-amber-950 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
-                  Legendario
-                </span>
-                <img 
-                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/144.png" 
-                  alt="Sobre Legendario"
-                  className="w-28 h-28 object-contain filter drop-shadow hover:scale-105 transition-transform"
-                />
-              </div>
-
-              <div>
-                <h3 className="text-base font-bold text-slate-100">Sobre Legendario</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  1 Legendaria garantizada + alto índice de etapas evolucionadas + 100% ítem asegurado (mejor tasa de Prismas).
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
-              <div className="flex items-center space-x-1.5 text-cyan-300 font-mono font-bold text-sm">
-                <span className="w-3.5 h-3.5 rotate-45 bg-cyan-400 rounded-xs inline-block"></span>
-                <span>400</span>
-              </div>
-
-              <button
-                onClick={() => handleBuyPack('legendario', 'gems')}
-                disabled={loadingAction || (user?.gems || 0) < 400}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-amber-300 border border-amber-500/40 text-xs font-bold rounded-xl shadow transition-all"
-              >
-                Comprar
-              </button>
-            </div>
-          </div>
-
-        </section>
+          </section>
+        </>
       )}
 
       {/* 3. MOCHILA E ÍTEMS */}

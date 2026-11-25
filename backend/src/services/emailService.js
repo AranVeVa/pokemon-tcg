@@ -52,7 +52,9 @@ function getResendClient() {
   return null;
 }
 
-const brevoApiKey = (process.env.BREVO_API_KEY || '').trim();
+const rawBrevoKey = (process.env.BREVO_API_KEY || '').trim();
+const rawSmtpPass = (process.env.SMTP_PASS || '').trim();
+const brevoApiKey = rawBrevoKey || (rawSmtpPass.startsWith('xkeysib-') ? rawSmtpPass : '');
 const smtpTransporter = getTransporter();
 const resendClient = getResendClient();
 
@@ -103,7 +105,9 @@ function buildEmailLayout({ accentColor, title, subtitle, username, intro, code,
  * Envía un correo HTML usando el proveedor disponible (HTTPS primero, luego SMTP)
  */
 async function dispatchEmail({ to, toName, subject, html, debugCode }) {
-  const fromEmail = (process.env.EMAIL_FROM || process.env.SMTP_USER || '').trim();
+  const fromEmail = (process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.GMAIL_USER || '').trim();
+  let lastError = null;
+  const hasProvider = Boolean((brevoApiKey && fromEmail) || resendClient || smtpTransporter);
 
   // 1. Brevo HTTP API (Puerto 443 HTTPS — nunca bloqueado por Render y sin esperas)
   if (brevoApiKey && fromEmail) {
@@ -129,8 +133,10 @@ async function dispatchEmail({ to, toName, subject, html, debugCode }) {
         console.log(`[EMAIL] Enviado vía Brevo API a ${to} (MessageId: ${body.messageId || 'ok'})`);
         return { success: true, provider: 'brevo-api', messageId: body.messageId };
       }
-      console.error(`[EMAIL ERROR] Brevo API (${response.status}) enviando a ${to}:`, body.message || JSON.stringify(body));
+      lastError = body.message || `Brevo HTTP ${response.status}`;
+      console.error(`[EMAIL ERROR] Brevo API (${response.status}) enviando a ${to}:`, lastError);
     } catch (err) {
+      lastError = err.message;
       console.error(`[EMAIL ERROR] Excepción en Brevo API enviando a ${to}:`, err.message);
     }
   }
@@ -148,8 +154,10 @@ async function dispatchEmail({ to, toName, subject, html, debugCode }) {
         console.log(`[EMAIL] Enviado vía Resend a ${to} (ID: ${data?.id})`);
         return { success: true, provider: 'resend', data };
       }
+      lastError = error.message;
       console.warn(`[EMAIL WARNING] Resend rechazó el envío a ${to}:`, error.message);
     } catch (err) {
+      lastError = err.message;
       console.error(`[EMAIL ERROR] Excepción con Resend enviando a ${to}:`, err.message);
     }
   }
@@ -167,9 +175,14 @@ async function dispatchEmail({ to, toName, subject, html, debugCode }) {
       console.log(`[EMAIL] Enviado vía SMTP a ${to} (MessageId: ${info.messageId})`);
       return { success: true, provider: 'smtp', messageId: info.messageId };
     } catch (err) {
+      lastError = err.message;
       console.error(`[EMAIL ERROR] Fallo vía SMTP a ${to}:`, err.message);
-      return { success: false, provider: 'smtp', error: err.message };
     }
+  }
+
+  if (hasProvider) {
+    console.error(`[EMAIL FAILED] Ningún proveedor pudo entregar el correo a ${to}. Último error: ${lastError}`);
+    return { success: false, error: lastError || 'Fallo al entregar el correo' };
   }
 
   console.log(`[EMAIL DEV LOG] Para: ${to} | Código: ${debugCode}`);

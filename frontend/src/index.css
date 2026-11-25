@@ -17,6 +17,30 @@
   }
 }
 
+/* Fondo temático Pokémon con pradera ("pastito") y aura Pokébola */
+.pokemon-route-bg {
+  position: relative;
+  background:
+    radial-gradient(circle at 85% 12%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 12% 20%, rgba(16, 185, 129, 0.07) 0%, transparent 45%),
+    linear-gradient(180deg, #070b14 0%, #09131c 65%, #081c17 100%);
+}
+
+.pokemon-grass-horizon {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.42;
+  background-repeat: repeat-x;
+  background-position: bottom left;
+  background-size: 320px 110px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 110' preserveAspectRatio='none'%3E%3Cpath d='M0 78 Q40 60 80 76 T160 72 T240 78 T320 74 L320 110 L0 110 Z' fill='%23064e3b'/%3E%3Cpath d='M0 90 Q35 76 70 88 T140 85 T210 90 T280 86 T320 90 L320 110 L0 110 Z' fill='%23047857' opacity='0.65'/%3E%3Cpath d='M14 84 L18 68 L22 84 M22 86 L28 65 L31 86 M74 82 L79 62 L83 82 M84 85 L90 66 L93 85 M146 80 L150 61 L154 80 M155 83 L161 65 L165 83 M216 84 L222 64 L226 84 M227 86 L232 69 L236 86 M282 82 L288 62 L292 82 M293 85 L299 67 L303 85' stroke='%2310b981' stroke-width='2' stroke-linecap='round' fill='none' opacity='0.55'/%3E%3C/svg%3E");
+}
+
 /* Authentic TCG Physical Card Frame & Holographic Foil */
 .tcg-card {
   position: relative;

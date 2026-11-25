@@ -159,7 +159,8 @@ router.post('/resend-verification', authenticateToken, async (req, res) => {
 // Iniciar sesión
 router.post('/login', async (req, res) => {
   try {
-    const { emailOrUsername, password } = req.body;
+    const emailOrUsername = (req.body.emailOrUsername || '').trim();
+    const password = req.body.password || '';
 
     if (!emailOrUsername || !password) {
       return res.status(400).json({ error: 'Credenciales incompletas' });
@@ -221,14 +222,13 @@ router.post('/verify-email', authenticateToken, async (req, res) => {
 
 // Solicitar recuperación de contraseña (Forgot Password)
 router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Ingresa tu correo electrónico' });
+  const cleanEmail = (req.body.email || '').trim().toLowerCase();
+  if (!cleanEmail) return res.status(400).json({ error: 'Ingresa tu correo electrónico' });
 
   try {
-    const userRes = await db.query('SELECT id, username, email FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    const userRes = await db.query('SELECT id, username, email FROM users WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
     if (userRes.rows.length === 0) {
-      // Por seguridad, indicar que se envió si existe
-      return res.json({ message: 'Si el correo está registrado, recibirás un código de recuperación.' });
+      return res.status(404).json({ error: 'No encontramos ninguna cuenta registrada con ese correo electrónico.' });
     }
 
     const user = userRes.rows[0];
@@ -240,10 +240,17 @@ router.post('/forgot-password', async (req, res) => {
       WHERE id = $2
     `, [resetCode, user.id]);
 
-    await sendPasswordResetEmail(user.email, user.username, resetCode);
+    const emailResult = await sendPasswordResetEmail(user.email, user.username, resetCode);
+    if (!emailResult || !emailResult.success) {
+      return res.status(502).json({
+        error: 'No se pudo entregar el correo desde el servidor (revisa las credenciales de correo BREVO_API_KEY y EMAIL_FROM en Render).'
+      });
+    }
 
     res.json({
-      message: 'Código de recuperación enviado a tu correo.'
+      message: emailResult.simulated
+        ? 'Código generado en modo local (revisa los logs del servidor).'
+        : 'Código de recuperación enviado a tu correo. Revisa también tu carpeta de Spam.'
     });
   } catch (error) {
     console.error('Error en forgot-password:', error);
@@ -253,9 +260,14 @@ router.post('/forgot-password', async (req, res) => {
 
 // Restablecer contraseña con código de recuperación
 router.post('/reset-password', async (req, res) => {
-  const { email, code, newPassword } = req.body;
-  if (!email || !code || !newPassword) {
+  const cleanEmail = (req.body.email || '').trim().toLowerCase();
+  const code = (req.body.code || '').trim();
+  const newPassword = req.body.newPassword || '';
+  if (!cleanEmail || !code || !newPassword) {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
   }
 
   try {
@@ -263,7 +275,7 @@ router.post('/reset-password', async (req, res) => {
       SELECT id, reset_password_token, reset_password_expires 
       FROM users 
       WHERE LOWER(email) = LOWER($1)
-    `, [email]);
+    `, [cleanEmail]);
 
     if (userRes.rows.length === 0) {
       return res.status(400).json({ error: 'Solicitud no válida o expirada' });

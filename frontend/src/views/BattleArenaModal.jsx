@@ -377,9 +377,19 @@ export default function BattleArenaModal({
           </div>
         </div>
 
-        {/* 2. ARENA (Scrollable internamente en pantallas bajas) */}
-        <div className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden flex flex-col justify-between p-2.5 sm:p-6 gap-3 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900/60 via-[#0a0f1d] to-[#060913]">
-          <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(to_right,#38bdf8_1px,transparent_1px),linear-gradient(to_bottom,#38bdf8_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+        {/* 2. ARENA CON PRADERA POKÉMON ("PASTITO") */}
+        <div className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden flex flex-col justify-between p-2.5 sm:p-6 gap-3 bg-gradient-to-b from-[#0b152a] via-[#0b1f1e] to-[#08291d]">
+          {/* Cielo estrellado sutil y colinas de pastito Pokémon */}
+          <div className="absolute inset-0 pointer-events-none opacity-25 bg-[radial-gradient(ellipse_at_top,_rgba(56,189,248,0.22),transparent_60%)]"></div>
+          <div
+            className="absolute inset-x-0 bottom-0 h-28 sm:h-36 pointer-events-none opacity-80"
+            style={{
+              backgroundRepeat: 'repeat-x',
+              backgroundPosition: 'bottom left',
+              backgroundSize: '280px 100%',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 120' preserveAspectRatio='none'%3E%3Cpath d='M0 72 Q45 48 95 68 T190 64 T280 72 L280 120 L0 120 Z' fill='%23064e3b'/%3E%3Cpath d='M0 90 Q35 76 70 88 T140 84 T210 90 T280 86 L280 120 L0 120 Z' fill='%23059669' opacity='0.5'/%3E%3Cpath d='M18 88 L22 70 L26 88 M26 90 L31 74 L35 90 M88 86 L92 67 L96 86 M158 84 L163 65 L167 84 M167 88 L172 72 L176 88 M232 88 L236 68 L240 88 M240 90 L246 73 L250 90' stroke='%2334d399' stroke-width='2' stroke-linecap='round' fill='none' opacity='0.65'/%3E%3C/svg%3E")`
+            }}
+          ></div>
 
           {/* TURN BANNER (En flujo normal para que nunca tape al Pokémon rival en móvil) */}
           <div className="z-20 flex flex-col items-center justify-center text-center gap-1">
@@ -455,7 +465,7 @@ export default function BattleArenaModal({
 
           {/* OPPONENT HALF */}
           <div className="flex justify-between sm:justify-end items-center w-full relative z-10 gap-2 sm:pr-6">
-            <div className="bg-slate-900/90 backdrop-blur-md p-2.5 sm:p-3.5 rounded-2xl border border-slate-800 shadow-xl flex-1 max-w-[210px] sm:max-w-[260px] relative">
+            <div className="bg-slate-900/90 backdrop-blur-md p-2.5 sm:p-3.5 rounded-2xl border border-slate-800 shadow-xl flex-1 min-w-0 max-w-[210px] sm:max-w-[260px] relative">
               <div className="flex items-center justify-between gap-1 text-xs font-bold text-slate-100 mb-1">
                 <span className="tracking-wide uppercase truncate">{opponentCard.name}</span>
                 <span className="text-[10px] font-bold text-red-400 bg-red-950/60 px-1.5 py-0.5 rounded-full border border-red-500/20 shrink-0">
@@ -552,7 +562,7 @@ export default function BattleArenaModal({
               <div className="w-24 sm:w-40 h-5 sm:h-6 rounded-[100%] bg-gradient-to-r from-cyan-500/10 via-cyan-500/30 to-cyan-500/10 border border-cyan-500/40 -mt-2"></div>
             </div>
 
-            <div className="bg-slate-900/90 backdrop-blur-md p-2.5 sm:p-3.5 rounded-2xl border border-slate-800 shadow-xl flex-1 max-w-[220px] sm:max-w-[275px] relative">
+            <div className="bg-slate-900/90 backdrop-blur-md p-2.5 sm:p-3.5 rounded-2xl border border-slate-800 shadow-xl flex-1 min-w-0 max-w-[220px] sm:max-w-[275px] relative">
               <div className="flex items-center justify-between gap-1 text-xs font-bold text-slate-100 mb-1">
                 <span className="tracking-wide uppercase truncate">{activeUserCard.name}</span>
                 <div className="flex items-center space-x-1 shrink-0">

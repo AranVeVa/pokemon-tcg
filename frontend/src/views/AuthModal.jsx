@@ -82,10 +82,11 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
   const handleForgotPassword = async (e) => {
     e?.preventDefault();
     setError('');
+    setInfoMessage('');
     setLoading(true);
     try {
-      await apiRequest('/auth/forgot-password', 'POST', { email });
-      setInfoMessage('Hemos enviado un código de recuperación a tu correo electrónico.');
+      const res = await apiRequest('/auth/forgot-password', 'POST', { email: email.trim() });
+      setInfoMessage(res.message || 'Hemos enviado un código de recuperación a tu correo electrónico.');
       setMode('reset');
     } catch (err) {
       setError(err.message);
@@ -97,11 +98,12 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
   const handleResetPassword = async (e) => {
     e?.preventDefault();
     setError('');
+    setInfoMessage('');
     setLoading(true);
     try {
       const res = await apiRequest('/auth/reset-password', 'POST', {
-        email,
-        code: resetCode,
+        email: email.trim(),
+        code: resetCode.trim(),
         newPassword
       });
       setInfoMessage(res.message);
