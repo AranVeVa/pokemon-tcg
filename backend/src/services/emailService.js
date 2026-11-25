@@ -1,42 +1,61 @@
 const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
 
-// 1. Configuración de Google / Gmail SMTP (Nodemailer)
-// Para usar con Gmail: SMTP_USER=tu_correo@gmail.com, SMTP_PASS=tu_app_password_de_16_letras
-const SMTP_USER = process.env.SMTP_USER || process.env.GMAIL_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASS || '';
+/**
+ * Servicio Universal de Envío de Correos Electrónicos
+ * Soporta:
+ * 1. Brevo / SendGrid / Mailgun / Outlook (SMTP Estándar con SMTP_HOST)
+ * 2. Gmail SMTP (Nodemailer con SMTP_USER y SMTP_PASS)
+ * 3. Resend API (RESEND_API_KEY)
+ */
 
-let smtpTransporter = null;
-if (SMTP_USER && SMTP_PASS) {
-  try {
-    smtpTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS.replace(/\s+/g, '') // Eliminar espacios accidentales de la app password
-      }
+function getTransporter() {
+  const host = process.env.SMTP_HOST || '';
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const user = (process.env.SMTP_USER || process.env.GMAIL_USER || '').trim();
+  const pass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || '').trim().replace(/\s+/g, '');
+
+  if (host && user && pass) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass }
     });
-    console.log(`📧 Nodemailer Gmail configurado con remitente: ${SMTP_USER}`);
-  } catch (err) {
-    console.warn('⚠️ No se pudo inicializar transporte SMTP de Gmail:', err.message);
+  } else if (user && pass) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
   }
+  return null;
 }
 
-// 2. Configuración de Resend
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-let resendClient = null;
-
-if (RESEND_API_KEY && !RESEND_API_KEY.includes('demo') && !RESEND_API_KEY.includes('placeholder')) {
-  try {
-    resendClient = new Resend(RESEND_API_KEY);
-    console.log('📧 Resend API configurado.');
-  } catch (err) {
-    console.warn('⚠️ No se pudo inicializar cliente de Resend:', err.message);
+function getResendClient() {
+  const apiKey = (process.env.RESEND_API_KEY || '').trim();
+  if (apiKey && !apiKey.includes('placeholder') && !apiKey.includes('demo')) {
+    try {
+      return new Resend(apiKey);
+    } catch (err) {
+      console.warn('[EMAIL] Error inicializando Resend:', err.message);
+    }
   }
+  return null;
+}
+
+const smtpTransporter = getTransporter();
+const resendClient = getResendClient();
+
+if (smtpTransporter) {
+  console.log('📧 Motor de correo SMTP inicializado correctamente.');
+} else if (resendClient) {
+  console.log('📧 Motor de correo Resend API inicializado correctamente.');
+} else {
+  console.log('ℹ️ Sin proveedor de correo configurado. Los correos se registrarán en los logs del servidor.');
 }
 
 /**
- * Enviar correo de verificación (Soporta Gmail SMTP y Resend)
+ * Enviar correo de verificación de cuenta
  */
 async function sendVerificationEmail(to, username, code) {
   const subject = '🎮 Código de Verificación · Pokémon TCG';
@@ -44,13 +63,13 @@ async function sendVerificationEmail(to, username, code) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #0b1222; border: 1px solid #1e293b; border-radius: 20px; overflow: hidden; color: #f1f5f9; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
       <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #082f49 100%); padding: 32px 24px; text-align: center; border-bottom: 1px solid #334155;">
         <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #38bdf8; letter-spacing: -0.5px;">⚡ POKÉMON TCG</h1>
-        <p style="margin: 8px 0 0 0; font-size: 14px; color: #94a3b8;">Plataforma Web de Cartas Coleccionables y Batallas RPG</p>
+        <p style="margin: 8px 0 0 0; font-size: 14px; color: #94a3b8;">Plataforma de Cartas Coleccionables y Combates RPG</p>
       </div>
       
       <div style="padding: 32px 28px; line-height: 1.6;">
-        <h2 style="font-size: 20px; font-weight: 800; margin-top: 0; color: #f8fafc;">¡Hola, Entrenador ${username}!</h2>
+        <h2 style="font-size: 20px; font-weight: 800; margin-top: 0; color: #f8fafc;">¡Hola, ${username}!</h2>
         <p style="color: #cbd5e1; font-size: 14px;">
-          Te damos la bienvenida a Pokémon TCG. Para verificar tu cuenta y comenzar a abrir sobres, armar tu mazo y combatir contra amigos, ingresa el siguiente código de 6 dígitos:
+          Gracias por unirte a Pokémon TCG. Para verificar tu cuenta y comenzar tu aventura coleccionando y compitiendo, ingresa este código de 6 dígitos:
         </p>
         
         <div style="text-align: center; margin: 28px 0;">
@@ -60,7 +79,7 @@ async function sendVerificationEmail(to, username, code) {
         </div>
 
         <p style="font-size: 12px; color: #64748b; text-align: center;">
-          Este código es válido durante 30 minutos. Si tú no creaste esta cuenta, puedes descartar este mensaje con seguridad.
+          Este código es válido durante 30 minutos. Si tú no realizaste este registro, puedes descartar este mensaje.
         </p>
 
         <hr style="border: none; border-top: 1px solid #1e293b; margin: 28px 0;" />
@@ -73,28 +92,25 @@ async function sendVerificationEmail(to, username, code) {
     </div>
   `;
 
-  console.log(`\n======================================================`);
-  console.log(`📧 [CÓDIGO DE VERIFICACIÓN] Para: ${to}`);
-  console.log(`🔑 Código: ${code}`);
-  console.log(`======================================================\n`);
+  const fromSender = process.env.EMAIL_FROM || process.env.SMTP_USER || 'Pokemon TCG <onboarding@resend.dev>';
 
-  // 1. Intentar con Gmail / Google SMTP
+  // 1. Envío por SMTP (Brevo / Gmail / Outlook / etc.)
   if (smtpTransporter) {
     try {
       const info = await smtpTransporter.sendMail({
-        from: `"Pokémon TCG" <${SMTP_USER}>`,
+        from: fromSender.includes('<') ? fromSender : `"Pokémon TCG" <${fromSender}>`,
         to,
         subject,
         html
       });
-      console.log(`✅ Correo enviado exitosamente vía Gmail SMTP a ${to}:`, info.messageId);
+      console.log(`[EMAIL] Correo de verificación enviado exitosamente a ${to} (MessageId: ${info.messageId})`);
       return { success: true, provider: 'smtp', messageId: info.messageId };
     } catch (err) {
-      console.error(`❌ Error enviando vía Gmail SMTP a ${to}:`, err.message);
+      console.error(`[EMAIL ERROR] Fallo al enviar vía SMTP a ${to}:`, err.message);
     }
   }
 
-  // 2. Intentar con Resend API
+  // 2. Envío por Resend API
   if (resendClient) {
     try {
       const { data, error } = await resendClient.emails.send({
@@ -104,16 +120,17 @@ async function sendVerificationEmail(to, username, code) {
         html
       });
       if (error) {
-        console.warn(`⚠️ Error en Resend API enviando a ${to}:`, error.message);
+        console.warn(`[EMAIL WARNING] Resend rechazó el envío a ${to}:`, error.message);
         return { success: false, provider: 'resend', error: error.message };
       }
-      console.log(`✅ Correo enviado exitosamente vía Resend API a ${to}:`, data?.id);
+      console.log(`[EMAIL] Correo de verificación enviado vía Resend a ${to} (ID: ${data?.id})`);
       return { success: true, provider: 'resend', data };
     } catch (err) {
-      console.warn(`⚠️ Excepción en Resend API enviando a ${to}:`, err.message);
+      console.error(`[EMAIL ERROR] Excepción con Resend enviando a ${to}:`, err.message);
     }
   }
 
+  console.log(`[EMAIL DEV LOG] Para: ${to} | Código de verificación: ${code}`);
   return { success: true, simulated: true };
 }
 
@@ -132,7 +149,7 @@ async function sendPasswordResetEmail(to, username, resetToken) {
       <div style="padding: 32px 28px; line-height: 1.6;">
         <h2 style="font-size: 20px; font-weight: 800; margin-top: 0; color: #f8fafc;">Hola, ${username}</h2>
         <p style="color: #cbd5e1; font-size: 14px;">
-          Recibimos una solicitud para restablecer la contraseña de tu cuenta. Usa este código de seguridad temporal para ingresar tu nueva contraseña:
+          Recibimos una solicitud para restablecer la contraseña de tu cuenta. Ingresa el siguiente código de seguridad en el juego para definir tu nueva contraseña:
         </p>
         
         <div style="text-align: center; margin: 28px 0;">
@@ -142,41 +159,37 @@ async function sendPasswordResetEmail(to, username, resetToken) {
         </div>
 
         <p style="font-size: 12px; color: #64748b; text-align: center;">
-          Ingresa este código en la pantalla de recuperación en el juego. Es válido durante 1 hora.
+          Este código es válido durante 1 hora. Si tú no solicitaste este cambio, tu contraseña actual permanece segura.
         </p>
 
         <hr style="border: none; border-top: 1px solid #1e293b; margin: 28px 0;" />
 
         <div style="text-align: center; font-size: 11px; color: #475569;">
           <p style="margin: 0;">UVAQ — Programación Web 2026</p>
-          <p style="margin: 4px 0 0 0;">Si tú no solicitaste este cambio, tu contraseña actual permanece segura.</p>
         </div>
       </div>
     </div>
   `;
 
-  console.log(`\n======================================================`);
-  console.log(`🔐 [RECUPERACIÓN DE CONTRASEÑA] Para: ${to}`);
-  console.log(`🔑 Código: ${resetToken}`);
-  console.log(`======================================================\n`);
+  const fromSender = process.env.EMAIL_FROM || process.env.SMTP_USER || 'Pokemon TCG <onboarding@resend.dev>';
 
-  // 1. Intentar con Gmail / Google SMTP
+  // 1. Envío por SMTP
   if (smtpTransporter) {
     try {
       const info = await smtpTransporter.sendMail({
-        from: `"Pokémon TCG" <${SMTP_USER}>`,
+        from: fromSender.includes('<') ? fromSender : `"Pokémon TCG" <${fromSender}>`,
         to,
         subject,
         html
       });
-      console.log(`✅ Correo de recuperación enviado vía Gmail SMTP a ${to}:`, info.messageId);
+      console.log(`[EMAIL] Correo de recuperación enviado exitosamente a ${to} (MessageId: ${info.messageId})`);
       return { success: true, provider: 'smtp', messageId: info.messageId };
     } catch (err) {
-      console.error(`❌ Error enviando recuperación vía Gmail SMTP a ${to}:`, err.message);
+      console.error(`[EMAIL ERROR] Fallo al enviar recuperación vía SMTP a ${to}:`, err.message);
     }
   }
 
-  // 2. Intentar con Resend API
+  // 2. Envío por Resend API
   if (resendClient) {
     try {
       const { data, error } = await resendClient.emails.send({
@@ -186,16 +199,17 @@ async function sendPasswordResetEmail(to, username, resetToken) {
         html
       });
       if (error) {
-        console.warn(`⚠️ Error en Resend API enviando recuperación a ${to}:`, error.message);
+        console.warn(`[EMAIL WARNING] Resend rechazó recuperación a ${to}:`, error.message);
         return { success: false, provider: 'resend', error: error.message };
       }
-      console.log(`✅ Correo de recuperación enviado vía Resend API a ${to}:`, data?.id);
+      console.log(`[EMAIL] Correo de recuperación enviado vía Resend a ${to} (ID: ${data?.id})`);
       return { success: true, provider: 'resend', data };
     } catch (err) {
-      console.warn(`⚠️ Excepción en Resend API enviando recuperación a ${to}:`, err.message);
+      console.error(`[EMAIL ERROR] Excepción con Resend enviando recuperación a ${to}:`, err.message);
     }
   }
 
+  console.log(`[EMAIL DEV LOG] Para: ${to} | Código de recuperación: ${resetToken}`);
   return { success: true, simulated: true };
 }
 
