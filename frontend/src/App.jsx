@@ -62,7 +62,7 @@ export default function App() {
         )}
 
         {/* Content Area */}
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-w-0 ${!user || isPublicTab ? 'max-w-6xl mx-auto' : ''}`}>
+        <main className={`flex-1 p-3 sm:p-6 lg:p-8 min-w-0 pb-24 md:pb-8 ${!user || isPublicTab ? 'max-w-6xl mx-auto' : ''}`}>
           
           {showLanding && (
             <LandingView 

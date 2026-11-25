@@ -111,10 +111,10 @@ export default function LandingView({ onOpenAuth, onExplore }) {
 
             <div className="inline-flex items-center space-x-2 bg-slate-900/90 border border-cyan-500/30 text-cyan-400 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
               <Sparkles size={13} className="text-cyan-400" />
-              <span className="tracking-wide uppercase text-[10px]">Juego Oficial Web de Cartas Coleccionables</span>
+              <span className="tracking-wide uppercase text-[10px]">Cartas Coleccionables y Duelos RPG</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-100 tracking-tight leading-[1.1]">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-100 tracking-tight leading-[1.1]">
               Colecciona, evoluciona <br className="hidden sm:inline" />
               <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
                 y compite
@@ -122,7 +122,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
             </h1>
 
             <p className="text-sm sm:text-base text-slate-400 max-w-xl leading-relaxed">
-              Abre sobres gratis cada 4 horas, completa tu Pokédex, intercambia cartas con amigos y enfréntate en intensos combates estratégicos por turnos estilo RPG con mecánicas de Pokémon GO.
+              Abre sobres periódicos sin costo, registra todas las especies en tu Pokédex, evoluciona tus cartas favoritas y desafía a tus amigos en batallas estratégicas por turnos en tiempo real.
             </p>
 
             {/* CTAs */}
@@ -148,7 +148,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
                     onClick={() => onOpenAuth('login')}
                     className="px-6 py-3.5 bg-slate-900/80 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-750 font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all"
                   >
-                    Ver Cómo Funciona
+                    Iniciar Sesión
                   </button>
                 </>
               )}
@@ -157,16 +157,16 @@ export default function LandingView({ onOpenAuth, onExplore }) {
             {/* Feature Highlights Bar */}
             <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-800/80 text-xs font-mono text-slate-400">
               <div>
-                <span className="block text-slate-200 font-bold font-sans">151 Kanto</span>
-                <span className="text-[10px] text-slate-500">Pokédex completa</span>
+                <span className="block text-slate-200 font-bold font-sans">9 Regiones</span>
+                <span className="text-[10px] text-slate-500">Pokédex Nacional</span>
               </div>
               <div>
-                <span className="block text-slate-200 font-bold font-sans">Cada 4 Horas</span>
-                <span className="text-[10px] text-slate-500">Sobre gratuito</span>
+                <span className="block text-slate-200 font-bold font-sans">Sobres Gratis</span>
+                <span className="text-[10px] text-slate-500">Recarga periódica</span>
               </div>
               <div>
-                <span className="block text-slate-200 font-bold font-sans">Combates RPG</span>
-                <span className="text-[10px] text-slate-500">Turnos y relevos</span>
+                <span className="block text-slate-200 font-bold font-sans">Duelos PvP</span>
+                <span className="text-[10px] text-slate-500">Turnos en vivo</span>
               </div>
             </div>
 
@@ -240,7 +240,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
               {/* Card Footer */}
               <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-800 text-[9px] font-mono text-slate-500">
                 <span>Rara Holográfica</span>
-                <span className="text-amber-400 font-bold">EDICIÓN KANTO</span>
+                <span className="text-amber-400 font-bold">PRIMERA EDICIÓN</span>
               </div>
 
             </div>
@@ -262,11 +262,11 @@ export default function LandingView({ onOpenAuth, onExplore }) {
               <span>Cartas Coleccionables Destacadas</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Acabado físico de carta coleccionable con estadísticas reales, tipos elementales y artwork oficial.
+              Acabado físico de carta coleccionable con estadísticas reales, tipos elementales y arte oficial.
             </p>
           </div>
           <span className="text-[11px] font-mono text-slate-400 font-bold self-start sm:self-auto bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-            Kanto Series · Gen 1
+            Colección Especial
           </span>
         </div>
 
@@ -322,7 +322,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
                 {/* Card Bottom Meta */}
                 <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
                   <span>{card.collectorNo}</span>
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">TCG Kanto</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Pokémon TCG</span>
                 </div>
               </div>
             );
@@ -354,10 +354,10 @@ export default function LandingView({ onOpenAuth, onExplore }) {
               </div>
               <h3 className="text-base font-black text-slate-100">Jugador Gratuito</h3>
               <span className="inline-block text-[11px] font-bold text-cyan-400 bg-cyan-950/70 border border-cyan-500/30 px-2.5 py-0.5 rounded-full">
-                Sobre gratis cada 4 horas
+                Sobres gratis periódicos
               </span>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Acceso completo a la Pokédex, pase de batalla gratuito con 50 niveles, intercambios de cartas y retos amistosos (sparring) sin costo.
+                Acceso completo a la Pokédex de 9 regiones, pase de batalla gratuito con 50 niveles, intercambios de cartas y combates amistosos sin costo.
               </p>
             </div>
             <div className="mt-6 pt-3 border-t border-slate-800 flex items-center text-xs text-cyan-400 font-bold font-mono">

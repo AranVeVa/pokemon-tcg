@@ -79,10 +79,10 @@ export default function StripeCheckoutModal({ initialProductId = 'pass_premium',
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto select-none text-slate-100">
       <div className="bg-[#0b1222] rounded-3xl max-w-2xl w-full border border-slate-750 shadow-2xl overflow-hidden relative my-auto">
         
-        {/* Top Sandbox Notice */}
-        <div className="bg-amber-950/80 text-amber-300 text-center py-2 px-4 text-xs font-mono font-black tracking-wider uppercase border-b border-amber-500/30 flex items-center justify-center space-x-2">
-          <ShieldCheck size={16} className="text-amber-400" />
-          <span>ENTORNO DE PRUEBA · Stripe Checkout Sandbox</span>
+        {/* Top Secure Payment Banner */}
+        <div className="bg-cyan-950/80 text-cyan-300 text-center py-2 px-4 text-xs font-mono font-black tracking-wider uppercase border-b border-cyan-500/30 flex items-center justify-center space-x-2">
+          <ShieldCheck size={16} className="text-cyan-400" />
+          <span>PAGO SEGURO · Pasarela Encriptada Stripe</span>
         </div>
 
         <button

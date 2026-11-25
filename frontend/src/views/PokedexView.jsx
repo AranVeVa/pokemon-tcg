@@ -409,22 +409,14 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Cargando catálogo de cartas...</p>
         </div>
       ) : filteredCards.length === 0 ? (
-        <div className="bg-[#0b1222] border border-slate-800 rounded-3xl p-10 text-center space-y-4 shadow-xl">
-          <Globe size={40} className="mx-auto text-cyan-400 animate-pulse" />
+        <div className="bg-[#0b1222] border border-slate-800 rounded-3xl p-10 text-center space-y-3 shadow-xl">
+          <Search size={36} className="mx-auto text-slate-500" />
           <h3 className="text-base font-black text-slate-100">
-            {searchTerm ? `¿Buscando a "${searchTerm}" en otras regiones?` : 'No hay Pokémon que coincidan con el filtro seleccionado'}
+            No se encontraron resultados
           </h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            La PokéAPI global contiene más de 1025 especies de todas las regiones. Puedes consultar cualquier especie en vivo e incorporarla a tu baraja.
+            No hay Pokémon que coincidan con tu búsqueda o filtro seleccionado. Prueba otro nombre, número (#025) o cambia de tipo.
           </p>
-          {searchTerm && (
-            <button
-              onClick={() => handleLivePokeApiSearch(searchTerm)}
-              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs shadow-lg shadow-cyan-500/20 uppercase tracking-wider"
-            >
-              Consultar "{searchTerm}" en PokéAPI Global
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">

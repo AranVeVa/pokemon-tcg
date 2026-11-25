@@ -224,14 +224,14 @@ export default function PacksShopView({ onOpenStripe }) {
             <div className="space-y-1">
               <div className="inline-flex items-center space-x-1.5 text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full">
                 <Clock size={12} />
-                <span>{modoDemo ? 'Modo Demo Activo (4 min)' : 'Modo Estándar (4 horas)'}</span>
+                <span>Disponible cada {intervaloMinutos >= 60 ? `${intervaloMinutos / 60} horas` : `${intervaloMinutos} minutos`}</span>
               </div>
               <h2 className="text-xl font-black text-slate-100">Sobre Gratuito</h2>
               <p className="text-xs text-slate-400">
-                Se renueva cada 4 horas. Modo demo: cada {intervaloMinutos} minutos.
+                Ábrelo sin costo en cuanto termine el temporizador para ampliar tu colección.
               </p>
               <p className="text-xs font-semibold text-slate-500 font-mono">
-                5 cartas aleatorias obtenidas directamente de la Pokédex.
+                Incluye 5 cartas aleatorias para tu álbum.
               </p>
             </div>
           </div>
