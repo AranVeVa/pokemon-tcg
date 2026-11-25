@@ -133,6 +133,7 @@ export default function App() {
                   initialSubTab={friendsSubTab}
                   onSubTabChange={setFriendsSubTab}
                   refreshSignal={globalSyncTick}
+                  onGoToBag={() => navigateToTab('sobres-tienda', { shopSubTab: 'items' })}
                 />
               )}
 

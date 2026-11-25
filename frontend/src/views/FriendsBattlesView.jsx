@@ -20,7 +20,7 @@ import BattleArenaModal from './BattleArenaModal';
 import TradesView from './TradesView';
 import TradeProposalModal from './TradeProposalModal';
 
-export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabChange, refreshSignal = 0 }) {
+export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabChange, refreshSignal = 0, onGoToBag }) {
   const { user } = useAuth();
   const [subTab, setSubTab] = useState(initialSubTab); // 'amigos' | 'intercambios'
 
@@ -171,10 +171,30 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
   const handleHealEntireTeam = async () => {
     try {
       const res = await apiRequest('/battles/heal-team', 'POST');
-      showAlert.success('Centro Pokémon', res.message);
+      if (res.fullyHealed) {
+        showAlert.success('Curación con Mochila', res.message);
+      } else {
+        const goShop = await showAlert.confirm(
+          'Curación Parcial',
+          res.message,
+          'Ir a Mochila e Ítems',
+          'Cerrar'
+        );
+        if (goShop && onGoToBag) onGoToBag();
+      }
       await fetchFriendsAndTeam();
     } catch (err) {
-      showAlert.error('Error', err.message);
+      if (onGoToBag) {
+        const goShop = await showAlert.confirm(
+          'Faltan Ítems en Mochila',
+          err.message,
+          'Ir a Mochila e Ítems',
+          'Cancelar'
+        );
+        if (goShop) onGoToBag();
+      } else {
+        showAlert.error('Faltan Ítems en Mochila', err.message);
+      }
     }
   };
 
@@ -349,10 +369,11 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
               <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                 <button
                   onClick={handleHealEntireTeam}
+                  title="Aplica pociones y revividores reales de tu mochila sobre los Pokémon heridos o debilitados de tu equipo"
                   className="px-3.5 py-2 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
                 >
                   <Heart size={14} className="fill-emerald-400 text-emerald-400" />
-                  <span>Centro Pokémon</span>
+                  <span>Curar con Mochila</span>
                 </button>
 
                 <button

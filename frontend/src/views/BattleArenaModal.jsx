@@ -792,60 +792,50 @@ export default function BattleArenaModal({
                 </div>
               )}
 
-              {/* Ítems reales de la mochila del entrenador */}
-              {combatItems.map((item) => {
-                const isRevive = item.effect_type?.startsWith('revive');
-                const isHeal = item.effect_type?.startsWith('heal');
-                const disabled = actionLoading || !isMyTurn || mustSwitch ||
-                  (isHeal && activeUserCard.current_hp >= activeUserCard.max_hp) ||
-                  (isRevive && faintedTeammates.length === 0) ||
-                  (item.effect_type === 'battle_energy' && energy >= 100);
-
-                return (
-                  <div key={item.item_key} className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-100 block truncate">
-                        {item.name} <span className="text-cyan-400 font-mono">x{item.quantity}</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400 block truncate">{item.description}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (isRevive) {
-                          setPendingReviveItem(item);
-                        } else {
-                          sendAction({ actionType: 'use_item', itemKey: item.item_key });
-                        }
-                      }}
-                      disabled={disabled}
-                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-black text-[11px] rounded-lg uppercase shrink-0"
-                    >
-                      Usar
-                    </button>
-                  </div>
-                );
-              })}
-
-              {/* Poción de Campo de emergencia */}
-              <div className="p-2 rounded-xl bg-slate-950 border border-emerald-500/40 flex items-center justify-between gap-2">
-                <div className="flex items-center space-x-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                    <Heart size={13} className="fill-emerald-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-100 block truncate">Botiquín de Campo (+50 HP)</span>
-                    <span className="text-[10px] text-emerald-400 font-mono">Siempre disponible · Consume turno</span>
-                  </div>
+              {/* Ítems reales de la mochila del entrenador (usar un ítem consume el turno) */}
+              {combatItems.length === 0 ? (
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1">
+                  <p className="text-xs font-bold text-slate-300">No tienes objetos de combate en tu mochila</p>
+                  <p className="text-[10px] text-slate-400">
+                    Consigue pociones, revividores o tónicos en Sobres o en Tienda → Mochila e Ítems.
+                  </p>
                 </div>
+              ) : (
+                combatItems.map((item) => {
+                  const isRevive = item.effect_type?.startsWith('revive');
+                  const isHeal = item.effect_type?.startsWith('heal');
+                  const disabled = actionLoading || !isMyTurn || mustSwitch ||
+                    (isHeal && activeUserCard.current_hp >= activeUserCard.max_hp) ||
+                    (isRevive && faintedTeammates.length === 0) ||
+                    (item.effect_type === 'battle_energy' && energy >= 100);
 
-                <button
-                  onClick={() => sendAction({ actionType: 'heal' })}
-                  disabled={actionLoading || !isMyTurn || mustSwitch || activeUserCard.current_hp >= activeUserCard.max_hp}
-                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-black text-[11px] rounded-lg uppercase shrink-0"
-                >
-                  {activeUserCard.current_hp >= activeUserCard.max_hp ? 'Lleno' : 'Curar'}
-                </button>
-              </div>
+                  return (
+                    <div key={item.item_key} className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-100 block truncate">
+                          {item.name} <span className="text-cyan-400 font-mono">x{item.quantity}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {item.description} · <strong className="text-amber-300">Consume tu turno</strong>
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (isRevive) {
+                            setPendingReviveItem(item);
+                          } else {
+                            sendAction({ actionType: 'use_item', itemKey: item.item_key });
+                          }
+                        }}
+                        disabled={disabled}
+                        className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-black text-[11px] rounded-lg uppercase shrink-0"
+                      >
+                        Usar
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
 

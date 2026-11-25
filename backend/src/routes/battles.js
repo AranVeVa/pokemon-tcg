@@ -549,7 +549,7 @@ router.post('/challenge', authenticateToken, async (req, res) => {
     }
 
     if (battleType === 'normal' && challengerTeam.every(c => c.current_hp <= 0)) {
-      return res.status(400).json({ error: 'Todos tus Pokémon están debilitados. Cúralos en el Centro Pokémon antes de retar.' });
+      return res.status(400).json({ error: 'Todos tus Pokémon están debilitados. Cúralos con tus ítems de Mochila antes de retar.' });
     }
 
     // Cancelar retos pendientes anteriores entre estos mismos jugadores
@@ -609,7 +609,7 @@ router.post('/live/:battleId/accept', authenticateToken, async (req, res) => {
     }
 
     if (battle.battle_type === 'normal' && opponentTeam.every(c => c.current_hp <= 0)) {
-      return res.status(400).json({ error: 'Todos tus Pokémon están debilitados. Cúralos en el Centro Pokémon primero.' });
+      return res.status(400).json({ error: 'Todos tus Pokémon están debilitados. Cúralos con tus ítems de Mochila primero.' });
     }
 
     const usersRes = await db.query('SELECT id, username FROM users WHERE id IN ($1, $2)', [battle.challenger_id, battle.opponent_id]);
@@ -817,20 +817,8 @@ router.post('/live/:battleId/action', authenticateToken, async (req, res) => {
         lastEvent = { id: Date.now(), actorId: req.user.id, actionType: 'shield', actorName: req.user.username };
         turnNumber += 1;
       } else if (actionType === 'heal') {
-        const healAmount = 50;
-        const oldHp = myActive.current_hp;
-        myActive.current_hp = Math.min(myActive.max_hp, myActive.current_hp + healAmount);
-        const healed = myActive.current_hp - oldHp;
-
-        logs.push(`${req.user.username} usó Poción de Campo en ${myActive.name} (+${healed} HP).`);
-        lastEvent = {
-          id: Date.now(),
-          actorId: req.user.id,
-          actionType: 'heal',
-          healAmount: healed,
-          targetSide: isChallenger ? 'challenger' : 'opponent'
-        };
-        turnNumber += 1;
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Usa una poción o revividor real desde tu Mochila.' });
       } else if (actionType === 'use_item') {
         const { itemKey, targetIndex } = req.body;
         if (!itemKey) {
@@ -1086,47 +1074,154 @@ router.post('/live/:battleId/action', authenticateToken, async (req, res) => {
 });
 
 // ========================================================
-// 3. CENTRO POKÉMON Y CURACIÓN FUERA DE COMBATE
+// 3. CURACIÓN AUTOMÁTICA DE EQUIPO USANDO ÍTEMS DE MOCHILA
 // ========================================================
 
 router.post('/heal-team', authenticateToken, async (req, res) => {
   const client = await db.pool.connect();
   try {
+    await ensureCatalogInitialized();
     await client.query('BEGIN');
-    await client.query(`UPDATE user_cards SET current_hp = max_hp WHERE user_id = $1`, [req.user.id]);
-    await client.query('COMMIT');
-    res.json({ message: '¡Equipo completamente curado y revitalizado en el Centro Pokémon!' });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error al curar equipo:', error);
-    res.status(500).json({ error: 'Error al curar Pokémon' });
-  } finally {
-    client.release();
-  }
-});
 
-router.post('/heal-card', authenticateToken, async (req, res) => {
-  const { userCardId, healAmount = 50 } = req.body;
-  const client = await db.pool.connect();
-  try {
-    await client.query('BEGIN');
-    const cardRes = await client.query(`SELECT id, current_hp, max_hp FROM user_cards WHERE id = $1 AND user_id = $2`, [userCardId, req.user.id]);
-    if (cardRes.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Carta no encontrada' });
+    // 1. Obtener equipo del jugador (o sus 3 mejores cartas si aún no marca equipo)
+    let teamRes = await client.query(`
+      SELECT uc.id, uc.current_hp, uc.max_hp, pc.name
+      FROM user_cards uc
+      JOIN pokemon_cards pc ON uc.card_id = pc.id
+      WHERE uc.user_id = $1 AND uc.is_in_team = true
+      ORDER BY uc.level DESC
+      LIMIT 3
+      FOR UPDATE
+    `, [req.user.id]);
+
+    if (teamRes.rows.length === 0) {
+      teamRes = await client.query(`
+        SELECT uc.id, uc.current_hp, uc.max_hp, pc.name
+        FROM user_cards uc
+        JOIN pokemon_cards pc ON uc.card_id = pc.id
+        WHERE uc.user_id = $1
+        ORDER BY uc.level DESC
+        LIMIT 3
+        FOR UPDATE
+      `, [req.user.id]);
     }
-    const card = cardRes.rows[0];
-    const newHp = Math.min(card.max_hp, card.current_hp + healAmount);
-    await client.query(`UPDATE user_cards SET current_hp = $1 WHERE id = $2`, [newHp, userCardId]);
+
+    const team = teamRes.rows;
+    if (team.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No tienes Pokémon en tu equipo.' });
+    }
+
+    const needsHealing = team.some(c => c.current_hp < c.max_hp);
+    if (!needsHealing) {
+      await client.query('ROLLBACK');
+      return res.json({
+        message: 'Tu equipo ya tiene toda su salud al máximo.',
+        usedItems: [],
+        fullyHealed: true
+      });
+    }
+
+    // 2. Bloquear inventario de ítems de curación/revivir
+    const invRes = await client.query(`
+      SELECT ui.item_key, ui.quantity, i.name, i.effect_type, i.effect_value
+      FROM user_items ui
+      JOIN items i ON ui.item_key = i.item_key
+      WHERE ui.user_id = $1 AND ui.quantity > 0
+        AND (i.effect_type LIKE 'heal%' OR i.effect_type LIKE 'revive%')
+      FOR UPDATE
+    `, [req.user.id]);
+
+    const invMap = {};
+    invRes.rows.forEach(r => {
+      invMap[r.item_key] = { ...r };
+    });
+
+    const consumedCounts = {};
+    const consumeItem = (key) => {
+      if (!invMap[key] || invMap[key].quantity <= 0) return false;
+      invMap[key].quantity -= 1;
+      consumedCounts[key] = (consumedCounts[key] || 0) + 1;
+      return true;
+    };
+
+    const reviveOrder = ['revive_10', 'revive_50', 'revive_full'];
+    const healOrder = ['potion_30', 'super_potion_75', 'hyper_potion_150', 'heal_full'];
+
+    const pickBestHealKey = (missingHp) => {
+      if (missingHp <= 35 && invMap.potion_30?.quantity > 0) return 'potion_30';
+      if (missingHp <= 85 && invMap.super_potion_75?.quantity > 0) return 'super_potion_75';
+      if (missingHp <= 165 && invMap.hyper_potion_150?.quantity > 0) return 'hyper_potion_150';
+      if (missingHp > 165 && invMap.heal_full?.quantity > 0) return 'heal_full';
+      return healOrder.find(k => invMap[k]?.quantity > 0) || null;
+    };
+
+    for (const card of team) {
+      // Paso A: Si está debilitado (0 HP), intentar revivir primero
+      if (card.current_hp <= 0) {
+        const revKey = reviveOrder.find(k => invMap[k]?.quantity > 0);
+        if (revKey && consumeItem(revKey)) {
+          const itemDef = invMap[revKey];
+          card.current_hp = itemDef.effect_type === 'revive_full'
+            ? card.max_hp
+            : Math.max(1, Math.round(card.max_hp * (itemDef.effect_value / 100)));
+        } else {
+          continue; // No se puede curar sin revivir antes
+        }
+      }
+
+      // Paso B: Curar HP restante con pociones disponibles
+      let guard = 0;
+      while (card.current_hp > 0 && card.current_hp < card.max_hp && guard < 30) {
+        guard += 1;
+        const missing = card.max_hp - card.current_hp;
+        const healKey = pickBestHealKey(missing);
+        if (!healKey || !consumeItem(healKey)) break;
+
+        const itemDef = invMap[healKey];
+        if (itemDef.effect_type === 'heal_percent') {
+          card.current_hp = card.max_hp;
+        } else {
+          card.current_hp = Math.min(card.max_hp, card.current_hp + itemDef.effect_value);
+        }
+      }
+    }
+
+    const totalConsumed = Object.values(consumedCounts).reduce((a, b) => a + b, 0);
+    if (totalConsumed === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'No tienes pociones ni revividores suficientes en tu mochila para curar a tu equipo. Consíguelos en Tienda -> Mochila e Ítems o abriendo sobres.'
+      });
+    }
+
+    // Guardar nuevos HP en user_cards y nuevas cantidades en user_items
+    for (const card of team) {
+      await client.query('UPDATE user_cards SET current_hp = $1 WHERE id = $2', [card.current_hp, card.id]);
+    }
+    for (const [itemKey, usedQty] of Object.entries(consumedCounts)) {
+      await client.query(
+        'UPDATE user_items SET quantity = quantity - $1 WHERE user_id = $2 AND item_key = $3',
+        [usedQty, req.user.id, itemKey]
+      );
+    }
+
     await client.query('COMMIT');
+
+    const usedSummary = Object.entries(consumedCounts).map(([k, q]) => `${q}x ${invMap[k].name}`);
+    const stillWounded = team.filter(c => c.current_hp < c.max_hp).length;
+
     res.json({
-      message: `¡Poción aplicada! +${newHp - card.current_hp} HP.`,
-      currentHp: newHp,
-      maxHp: card.max_hp
+      message: stillWounded === 0
+        ? `¡Equipo curado al 100%! Se consumió de tu mochila: ${usedSummary.join(', ')}.`
+        : `Se usó de tu mochila: ${usedSummary.join(', ')}. Faltaron más ítems para completar la curación de todo el equipo.`,
+      usedItems: usedSummary,
+      fullyHealed: stillWounded === 0
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Error al curar carta' });
+    console.error('Error al curar equipo con mochila:', error);
+    res.status(500).json({ error: 'Error al curar Pokémon con tu mochila' });
   } finally {
     client.release();
   }
