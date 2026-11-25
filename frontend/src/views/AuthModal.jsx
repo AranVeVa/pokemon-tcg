@@ -38,7 +38,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setLoading(true);
     try {
       const res = await register(username, email, password);
-      setInfoMessage(`Correo de verificación enviado vía Resend. (Código de prueba: ${res.verificationCode})`);
+      setInfoMessage('Hemos enviado un código de verificación de 6 dígitos a tu correo electrónico.');
       setMode('verify');
     } catch (err) {
       setError(err.message);
@@ -67,8 +67,8 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setInfoMessage('');
     setLoading(true);
     try {
-      const res = await apiRequest('/auth/resend-code', 'POST', { email });
-      setInfoMessage(`Nuevo código enviado con Resend. (Código de prueba: ${res.verificationCode})`);
+      await apiRequest('/auth/resend-code', 'POST', { email });
+      setInfoMessage('Se ha enviado un nuevo código de verificación a tu correo.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -81,8 +81,8 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setError('');
     setLoading(true);
     try {
-      const res = await apiRequest('/auth/forgot-password', 'POST', { email });
-      setInfoMessage(`Código de recuperación enviado. (Código de prueba: ${res.resetCode})`);
+      await apiRequest('/auth/forgot-password', 'POST', { email });
+      setInfoMessage('Hemos enviado un código de recuperación a tu correo electrónico.');
       setMode('reset');
     } catch (err) {
       setError(err.message);
@@ -308,7 +308,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               <div className="mb-6">
                 <h2 className="text-2xl font-black text-slate-100">Crear Cuenta</h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Verificación de cuenta enviada por <strong>Resend</strong>.
+                  Protege tu progreso y colecciona cartas con otros entrenadores.
                 </p>
               </div>
 
@@ -363,7 +363,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                   disabled={loading}
                   className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl shadow-lg shadow-cyan-500/20 text-xs uppercase tracking-wider transition-all disabled:opacity-50"
                 >
-                  {loading ? 'Creando...' : 'Crear Cuenta con Resend'}
+                  {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
                 </button>
 
                 <div className="text-center pt-2">
@@ -385,7 +385,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               <div className="mb-6">
                 <h2 className="text-2xl font-black text-slate-100">Verifica tu Correo</h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Enviamos un código de 6 dígitos con <strong>Resend</strong> a tu correo asignado.
+                  Ingresa el código de 6 dígitos que enviamos a tu correo electrónico.
                 </p>
               </div>
 
@@ -419,7 +419,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                     className="text-xs text-cyan-400 font-bold hover:underline inline-flex items-center space-x-1"
                   >
                     <RefreshCw size={13} />
-                    <span>Reenviar código por correo con Resend</span>
+                    <span>¿No recibiste el código? Reenviar código</span>
                   </button>
                 </div>
               </form>
@@ -432,7 +432,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               <div className="mb-6">
                 <h2 className="text-2xl font-black text-slate-100">Recuperar Contraseña</h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Ingresa tu correo para enviarte un código de seguridad mediante <strong>Resend</strong>.
+                  Ingresa tu correo registrado para enviarte un código de recuperación.
                 </p>
               </div>
 
@@ -458,7 +458,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                   className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl shadow-md text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
                 >
                   <Send size={15} />
-                  <span>{loading ? 'Enviando...' : 'Enviar Código con Resend'}</span>
+                  <span>{loading ? 'Enviando...' : 'Enviar Código de Recuperación'}</span>
                 </button>
 
                 <div className="text-center pt-2">

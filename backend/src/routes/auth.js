@@ -72,7 +72,6 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       message: 'Usuario registrado exitosamente. Se ha enviado un correo con tu código de verificación.',
       token,
-      verificationCode: verificationToken,
       user: newUser
     });
   } catch (error) {
@@ -81,7 +80,43 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Reenviar código de verificación por Resend
+// Reenviar código de verificación público por email
+router.post('/resend-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Ingresa tu correo electrónico' });
+    }
+
+    const userRes = await db.query(
+      'SELECT id, email, username, is_verified FROM users WHERE LOWER(email) = LOWER($1)',
+      [email.trim()]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'No se encontró ninguna cuenta registrada con ese correo.' });
+    }
+
+    const user = userRes.rows[0];
+    if (user.is_verified) {
+      return res.json({ message: 'Tu cuenta ya está verificada. Puedes iniciar sesión.' });
+    }
+
+    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+    await db.query('UPDATE users SET verification_token = $1 WHERE id = $2', [newCode, user.id]);
+
+    await sendVerificationEmail(user.email, user.username, newCode);
+
+    res.json({
+      message: 'Se ha enviado un nuevo código de verificación a tu correo.'
+    });
+  } catch (error) {
+    console.error('Error al reenviar código:', error);
+    res.status(500).json({ error: 'Error al reenviar código de verificación' });
+  }
+});
+
+// Reenviar código de verificación para usuario autenticado
 router.post('/resend-verification', authenticateToken, async (req, res) => {
   try {
     const userRes = await db.query('SELECT email, username, is_verified FROM users WHERE id = $1', [req.user.id]);
@@ -97,8 +132,7 @@ router.post('/resend-verification', authenticateToken, async (req, res) => {
     await sendVerificationEmail(user.email, user.username, newCode);
 
     res.json({
-      message: 'Se ha reenviado un nuevo código de verificación a tu correo.',
-      verificationCode: newCode
+      message: 'Se ha reenviado un nuevo código de verificación a tu correo.'
     });
   } catch (error) {
     console.error('Error al reenviar código:', error);
@@ -193,8 +227,7 @@ router.post('/forgot-password', async (req, res) => {
     await sendPasswordResetEmail(user.email, user.username, resetCode);
 
     res.json({
-      message: 'Código de recuperación enviado a tu correo.',
-      resetCode // Para pruebas locales
+      message: 'Código de recuperación enviado a tu correo.'
     });
   } catch (error) {
     console.error('Error en forgot-password:', error);
