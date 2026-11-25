@@ -176,8 +176,7 @@ export default function AdminPanel() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="text-base font-black text-slate-100">Gestión de Roles de Usuario</h3>
             
-            {/* Search Box */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
@@ -185,7 +184,7 @@ export default function AdminPanel() {
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchAdminData()}
-                className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-56 sm:w-64"
+                className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full sm:w-64"
               />
             </div>
           </div>
@@ -252,7 +251,7 @@ export default function AdminPanel() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="text-base font-black text-slate-100">Catálogo de Cartas e Imágenes</h3>
             
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
@@ -260,7 +259,7 @@ export default function AdminPanel() {
                 value={cardSearch}
                 onChange={(e) => setCardSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchAdminData()}
-                className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-56 sm:w-64"
+                className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full sm:w-64"
               />
             </div>
           </div>
@@ -419,6 +418,48 @@ export default function AdminPanel() {
               );
             })}
           </div>
+
+          {/* Probabilidades de Ítems y Prismas */}
+          {configs.item_drop_rates && (
+            <div className="p-5 bg-[#0e1628] rounded-2xl border border-slate-800 space-y-4">
+              <div>
+                <h4 className="font-black text-sm text-slate-100">Pesos de Aparición de Ítems y Prismas</h4>
+                <p className="text-[11px] text-slate-400">Los Prismas mantienen pesos bajos frente a las curaciones básicas.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Object.entries(configs.item_drop_rates).map(([itemKey, weight]) => (
+                  <div key={itemKey} className="flex items-center justify-between text-xs bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 gap-2">
+                    <span className="font-mono font-bold text-slate-300 truncate">{itemKey}</span>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      max="1"
+                      value={weight ?? 0}
+                      onChange={(e) => {
+                        const updated = {
+                          ...configs,
+                          item_drop_rates: {
+                            ...configs.item_drop_rates,
+                            [itemKey]: parseFloat(e.target.value) || 0
+                          }
+                        };
+                        setConfigs(updated);
+                      }}
+                      className="w-20 p-1 bg-slate-900 border border-slate-800 rounded text-center font-mono font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => handleSaveConfig('item_drop_rates', configs.item_drop_rates)}
+                disabled={actionLoading}
+                className="px-6 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold rounded-xl text-xs shadow"
+              >
+                Guardar Tasas de Ítems
+              </button>
+            </div>
+          )}
         </div>
       )}
 

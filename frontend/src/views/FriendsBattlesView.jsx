@@ -8,22 +8,25 @@ import {
   Search, 
   UserPlus, 
   Swords, 
-  CheckCircle2, 
-  AlertCircle,
   Heart,
   Edit3,
   X,
   Check,
   Bell,
-  Clock
+  Clock,
+  ArrowLeftRight
 } from 'lucide-react';
 import BattleArenaModal from './BattleArenaModal';
+import TradesView from './TradesView';
+import TradeProposalModal from './TradeProposalModal';
 
 export default function FriendsBattlesView() {
   const { user } = useAuth();
+  const [subTab, setSubTab] = useState('amigos'); // 'amigos' | 'intercambios'
   const [friends, setFriends] = useState([]);
   const [incomingFriendRequests, setIncomingFriendRequests] = useState([]);
   const [sentFriendRequests, setSentFriendRequests] = useState([]);
+  const [pendingTradesCount, setPendingTradesCount] = useState(0);
 
   const [incomingChallenges, setIncomingChallenges] = useState([]);
   const [activeBattles, setActiveBattles] = useState([]);
@@ -45,17 +48,22 @@ export default function FriendsBattlesView() {
   // Combate en vivo activo
   const [activeBattleData, setActiveBattleData] = useState(null);
 
+  // Modal directo de intercambio con un amigo desde su fila
+  const [tradeFriendId, setTradeFriendId] = useState(null);
+
   useEffect(() => {
     fetchFriendsAndTeam();
     fetchChallenges();
+    fetchPendingTradesCount();
   }, []);
 
-  // Polling cada 3 segundos para detectar solicitudes de amistad y retos de combate entrantes
+  // Polling cada 3 segundos para detectar solicitudes, retos e intercambios entrantes
   useEffect(() => {
     const interval = setInterval(() => {
       fetchChallenges();
       fetchFriendsOnly();
-    }, 3000);
+      fetchPendingTradesCount();
+    }, 3500);
     return () => clearInterval(interval);
   }, []);
 
@@ -66,6 +74,16 @@ export default function FriendsBattlesView() {
       setSearchResults([]);
     }
   }, [debouncedSearchQuery]);
+
+  const fetchPendingTradesCount = async () => {
+    try {
+      const res = await apiRequest('/trades');
+      const incoming = (res.trades || []).filter(t => t.status === 'pending' && t.receiver_id === user?.id);
+      setPendingTradesCount(incoming.length);
+    } catch (err) {
+      // ignore background poll errors
+    }
+  };
 
   const fetchFriendsOnly = async () => {
     try {
@@ -163,7 +181,6 @@ export default function FriendsBattlesView() {
     }
   };
 
-  // Enviar reto real al amigo seleccionado (espera aceptación del rival)
   const handleChallengeFriend = async (friend, battleType) => {
     try {
       const res = await apiRequest('/battles/challenge', 'POST', {
@@ -179,7 +196,6 @@ export default function FriendsBattlesView() {
     }
   };
 
-  // Aceptar un reto recibido e ingresar al combate
   const handleAcceptChallenge = async (challengeId) => {
     try {
       const res = await apiRequest(`/battles/live/${challengeId}/accept`, 'POST', {
@@ -247,14 +263,42 @@ export default function FriendsBattlesView() {
   };
 
   return (
-    <div className="space-y-8 pb-12 select-none">
+    <div className="space-y-6 pb-12 select-none">
       
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-slate-100 tracking-tight">Amigos y Combates</h1>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Agrega entrenadores, arma tu equipo de 3 Pokémon y rétalos en línea en tiempo real.
-        </p>
+      {/* Header + Sub-tabs internos (sin agregar al menú lateral) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800 pb-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-100 tracking-tight">Amigos, Combates e Intercambios</h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Agrega entrenadores, arma tu equipo de 3 Pokémon, rétalos o intercambia cartas repetidas.
+          </p>
+        </div>
+
+        <div className="inline-flex bg-slate-900 p-1 rounded-xl self-start sm:self-auto border border-slate-800 max-w-full">
+          <button
+            onClick={() => setSubTab('amigos')}
+            className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              subTab === 'amigos' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users size={14} />
+            <span>Amigos y Retos</span>
+          </button>
+          <button
+            onClick={() => setSubTab('intercambios')}
+            className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              subTab === 'intercambios' ? 'bg-slate-800 text-cyan-400 shadow-sm border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <ArrowLeftRight size={14} />
+            <span>Intercambios</span>
+            {pendingTradesCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500 text-slate-950 font-black">
+                {pendingTradesCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* RETOS DE COMBATE ENTRANTES / EN CURSO */}
@@ -266,11 +310,11 @@ export default function FriendsBattlesView() {
               className="bg-gradient-to-r from-cyan-950/90 via-[#0b1222] to-slate-900 border-2 border-cyan-500/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-cyan-500/10"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 animate-pulse">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 animate-pulse shrink-0">
                   <Swords size={20} />
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-100">
+                <div className="min-w-0">
+                  <h4 className="text-sm font-black text-slate-100 truncate">
                     ¡{c.challenger_name} te ha retado a combatir!
                   </h4>
                   <span className="text-xs text-cyan-300 font-semibold">
@@ -279,7 +323,7 @@ export default function FriendsBattlesView() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 shrink-0">
                 <button
                   onClick={() => handleRejectChallenge(c.id)}
                   className="px-4 py-2 bg-slate-900 hover:bg-rose-950 text-slate-300 hover:text-rose-300 border border-slate-700 font-bold rounded-xl text-xs transition-all"
@@ -302,7 +346,7 @@ export default function FriendsBattlesView() {
               className="bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="flex items-center space-x-3">
-                <Clock size={18} className="text-emerald-400 animate-spin" />
+                <Clock size={18} className="text-emerald-400 animate-spin shrink-0" />
                 <div>
                   <h4 className="text-xs font-bold text-emerald-200">
                     Combate en curso contra {ab.challenger_id === user?.id ? ab.opponent_name : ab.challenger_name}
@@ -314,7 +358,7 @@ export default function FriendsBattlesView() {
               </div>
               <button
                 onClick={() => handleOpenActiveBattle(ab.id)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs shadow transition-all"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs shadow transition-all self-start sm:self-auto"
               >
                 Entrar al Combate
               </button>
@@ -323,296 +367,315 @@ export default function FriendsBattlesView() {
         </section>
       )}
 
-      {/* 3-POKÉMON TEAM CONFIGURATION */}
-      <section className="bg-[#0b1222] rounded-3xl p-5 sm:p-7 border border-slate-800 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
-                Mi Equipo (3 Pokémon)
-              </h3>
-              <span className="text-[10px] font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-500/30">
-                {teamCards.length}/3
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Elige a tu líder de entrada o cambia los 3 miembros de tu equipo.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <button
-              onClick={handleHealEntireTeam}
-              className="px-4 py-2 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
-            >
-              <Heart size={14} className="fill-emerald-400 text-emerald-400" />
-              <span>Centro Pokémon (Curar)</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setSelectedTeamIds(teamCards.map(c => c.user_card_id));
-                setIsEditingTeam(true);
-              }}
-              className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
-            >
-              <Edit3 size={14} />
-              <span>Seleccionar Equipo</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[0, 1, 2].map((slotIdx) => {
-            const card = teamCards[slotIdx];
-            if (!card) {
-              return (
-                <div 
-                  key={slotIdx}
-                  onClick={() => setIsEditingTeam(true)}
-                  className="p-5 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900/40 hover:bg-slate-900/70 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[180px] text-center space-y-2"
-                >
-                  <UserPlus size={18} className="text-slate-500" />
-                  <span className="text-xs font-bold text-slate-400">Ranura {slotIdx + 1} Vacía</span>
+      {subTab === 'intercambios' ? (
+        <TradesView
+          onTradesChanged={() => {
+            fetchPendingTradesCount();
+            fetchFriendsAndTeam();
+          }}
+        />
+      ) : (
+        <>
+          {/* 3-POKÉMON TEAM CONFIGURATION */}
+          <section className="bg-[#0b1222] rounded-3xl p-4 sm:p-7 border border-slate-800 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
+                    Mi Equipo (3 Pokémon)
+                  </h3>
+                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                    {teamCards.length}/3
+                  </span>
                 </div>
-              );
-            }
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Elige a tu líder de entrada o cambia los 3 miembros de tu equipo.
+                </p>
+              </div>
 
-            const isSelected = card.user_card_id === selectedLeadCardId;
-            const fastMove = card.moves?.[0] || { name: 'Ataque Rápido', power: 14 };
-            const chargedMove = card.moves?.[1] || { name: 'Ataque Cargado', power: 75 };
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={handleHealEntireTeam}
+                  className="px-3.5 py-2 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+                >
+                  <Heart size={14} className="fill-emerald-400 text-emerald-400" />
+                  <span>Centro Pokémon</span>
+                </button>
 
-            return (
-              <div 
-                key={card.user_card_id}
-                onClick={() => setSelectedLeadCardId(card.user_card_id)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                  isSelected 
-                    ? 'border-cyan-500/80 bg-slate-900/90 shadow-lg ring-1 ring-cyan-500/40' 
-                    : 'border-slate-800 bg-slate-900/50 hover:bg-slate-900/80'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">
-                      {slotIdx === 0 ? 'Líder' : `Compañero #${slotIdx + 1}`}
-                    </span>
-                    <span className="bg-amber-950/60 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-full border border-amber-500/30">
-                      IV {card.iv_percentage || 85}%
-                    </span>
-                  </div>
+                <button
+                  onClick={() => {
+                    setSelectedTeamIds(teamCards.map(c => c.user_card_id));
+                    setIsEditingTeam(true);
+                  }}
+                  className="px-3.5 py-2 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+                >
+                  <Edit3 size={14} />
+                  <span>Seleccionar Equipo</span>
+                </button>
+              </div>
+            </div>
 
-                  <div className="flex items-center space-x-3">
-                    <img src={card.animated_front_url || card.sprite_url} alt={card.name} className="w-14 h-14 object-contain" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[0, 1, 2].map((slotIdx) => {
+                const card = teamCards[slotIdx];
+                if (!card) {
+                  return (
+                    <div 
+                      key={slotIdx}
+                      onClick={() => setIsEditingTeam(true)}
+                      className="p-5 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900/40 hover:bg-slate-900/70 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[160px] text-center space-y-2"
+                    >
+                      <UserPlus size={18} className="text-slate-500" />
+                      <span className="text-xs font-bold text-slate-400">Ranura {slotIdx + 1} Vacía</span>
+                    </div>
+                  );
+                }
+
+                const isSelected = card.user_card_id === selectedLeadCardId;
+                const fastMove = card.moves?.[0] || { name: 'Ataque Rápido', power: 14 };
+                const chargedMove = card.moves?.[1] || { name: 'Ataque Cargado', power: 75 };
+
+                return (
+                  <div 
+                    key={card.user_card_id}
+                    onClick={() => setSelectedLeadCardId(card.user_card_id)}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                      isSelected 
+                        ? 'border-cyan-500/80 bg-slate-900/90 shadow-lg ring-1 ring-cyan-500/40' 
+                        : 'border-slate-800 bg-slate-900/50 hover:bg-slate-900/80'
+                    }`}
+                  >
                     <div>
-                      <h4 className="font-bold text-sm text-slate-100 leading-tight">{card.name}</h4>
-                      <span className="text-[11px] font-semibold text-cyan-400">Nivel {card.level}</span>
-                      <div className="flex gap-1 mt-0.5">
-                        {card.types?.map((t, tidx) => (
-                          <span key={tidx} className="text-[9px] font-bold bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700 text-slate-300">
-                            {t}
-                          </span>
-                        ))}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">
+                          {slotIdx === 0 ? 'Líder' : `Compañero #${slotIdx + 1}`}
+                        </span>
+                        <span className="bg-amber-950/60 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-full border border-amber-500/30">
+                          IV {card.iv_percentage || 85}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <img src={card.animated_front_url || card.sprite_url} alt={card.name} className="w-14 h-14 object-contain shrink-0" />
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-sm text-slate-100 leading-tight truncate">{card.name}</h4>
+                          <span className="text-[11px] font-semibold text-cyan-400">Nivel {card.level}</span>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {card.types?.map((t, tidx) => (
+                              <span key={tidx} className="text-[9px] font-bold bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700 text-slate-300">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1 text-[10px] font-mono font-bold text-center mt-3 pt-2 border-t border-slate-800 text-slate-400">
+                        <div className="bg-slate-950 p-1 rounded border border-slate-850">
+                          <span className="text-red-400 block text-[9px]">HP</span>
+                          <span>{card.current_hp}/{card.max_hp}</span>
+                        </div>
+                        <div className="bg-slate-950 p-1 rounded border border-slate-850">
+                          <span className="text-cyan-400 block text-[9px]">ATQ</span>
+                          <span>{card.atk}</span>
+                        </div>
+                        <div className="bg-slate-950 p-1 rounded border border-slate-850">
+                          <span className="text-emerald-400 block text-[9px]">DEF</span>
+                          <span>{card.def || 45}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 space-y-1 text-[10px] font-mono">
+                        <div className="flex items-center justify-between bg-slate-950 px-2 py-1 rounded border border-slate-850 text-slate-300">
+                          <span className="truncate">{fastMove.name}</span>
+                          <span className="text-cyan-400 font-bold ml-1 shrink-0">{fastMove.power}</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-slate-950 px-2 py-1 rounded border border-slate-850 text-slate-300">
+                          <span className="truncate text-amber-300">{chargedMove.name}</span>
+                          <span className="text-amber-400 font-bold ml-1 shrink-0">{chargedMove.power}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-1 text-[10px] font-mono font-bold text-center mt-3 pt-2 border-t border-slate-800 text-slate-400">
-                    <div className="bg-slate-950 p-1 rounded border border-slate-850">
-                      <span className="text-red-400 block text-[9px]">HP</span>
-                      <span>{card.current_hp}/{card.max_hp}</span>
-                    </div>
-                    <div className="bg-slate-950 p-1 rounded border border-slate-850">
-                      <span className="text-cyan-400 block text-[9px]">ATQ</span>
-                      <span>{card.atk}</span>
-                    </div>
-                    <div className="bg-slate-950 p-1 rounded border border-slate-850">
-                      <span className="text-emerald-400 block text-[9px]">DEF</span>
-                      <span>{card.def || 45}</span>
+                    <div className="mt-3 pt-2 text-center">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full ${
+                        isSelected ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-950 text-slate-500 border border-slate-800'
+                      }`}>
+                        {isSelected ? 'Líder' : 'Elegir Líder'}
+                      </span>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </section>
 
-                  <div className="mt-2 space-y-1 text-[10px] font-mono">
-                    <div className="flex items-center justify-between bg-slate-950 px-2 py-1 rounded border border-slate-850 text-slate-300">
-                      <span className="truncate">{fastMove.name}</span>
-                      <span className="text-cyan-400 font-bold ml-1">{fastMove.power}</span>
-                    </div>
-                    <div className="flex items-center justify-between bg-slate-950 px-2 py-1 rounded border border-slate-850 text-slate-300">
-                      <span className="truncate text-amber-300">{chargedMove.name}</span>
-                      <span className="text-amber-400 font-bold ml-1">{chargedMove.power}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2 text-center">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full ${
-                    isSelected ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-950 text-slate-500 border border-slate-800'
-                  }`}>
-                    {isSelected ? 'Líder' : 'Elegir Líder'}
-                  </span>
-                </div>
+          {/* SOLICITUDES DE AMISTAD PENDIENTES */}
+          {incomingFriendRequests.length > 0 && (
+            <section className="bg-[#0b1222] rounded-3xl p-4 sm:p-5 border border-amber-500/40 shadow-xl space-y-3">
+              <div className="flex items-center space-x-2">
+                <Bell size={16} className="text-amber-400" />
+                <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
+                  Solicitudes de Amistad ({incomingFriendRequests.length})
+                </h3>
               </div>
-            );
-          })}
-        </div>
-      </section>
 
-      {/* SOLICITUDES DE AMISTAD PENDIENTES */}
-      {incomingFriendRequests.length > 0 && (
-        <section className="bg-[#0b1222] rounded-3xl p-5 border border-amber-500/40 shadow-xl space-y-3">
-          <div className="flex items-center space-x-2">
-            <Bell size={16} className="text-amber-400" />
-            <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
-              Solicitudes de Amistad ({incomingFriendRequests.length})
-            </h3>
-          </div>
+              <div className="space-y-2">
+                {incomingFriendRequests.map((req) => (
+                  <div key={req.request_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900 rounded-2xl border border-slate-800">
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-amber-950 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30 shrink-0">
+                        {req.username.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-100 block truncate">{req.username}</span>
+                        <span className="text-[11px] text-slate-500 block truncate">{req.email}</span>
+                      </div>
+                    </div>
 
-          <div className="space-y-2">
-            {incomingFriendRequests.map((req) => (
-              <div key={req.request_id} className="flex items-center justify-between p-3 bg-slate-900 rounded-2xl border border-slate-800">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-950 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30">
-                    {req.username.slice(0, 2).toUpperCase()}
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <button
+                        onClick={() => handleRespondFriendRequest(req.request_id, 'reject')}
+                        className="px-3 py-1.5 bg-slate-850 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700 font-bold rounded-xl text-xs transition-all"
+                      >
+                        Rechazar
+                      </button>
+                      <button
+                        onClick={() => handleRespondFriendRequest(req.request_id, 'accept')}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow transition-all"
+                      >
+                        Aceptar
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-100 block">{req.username}</span>
-                    <span className="text-[11px] text-slate-500">{req.email}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleRespondFriendRequest(req.request_id, 'reject')}
-                    className="px-3 py-1.5 bg-slate-850 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700 font-bold rounded-xl text-xs transition-all"
-                  >
-                    Rechazar
-                  </button>
-                  <button
-                    onClick={() => handleRespondFriendRequest(req.request_id, 'accept')}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow transition-all"
-                  >
-                    Aceptar
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* BUSCADOR DE ENTRENADORES */}
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-xl">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Buscar entrenadores para enviar solicitud..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={searching}
-          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border border-slate-700 font-bold rounded-xl text-xs sm:text-sm shadow-sm"
-        >
-          {searching ? 'Buscando...' : 'Buscar'}
-        </button>
-      </form>
-
-      {searchResults.length > 0 && (
-        <div className="bg-[#0b1222] p-4 rounded-2xl border border-slate-800 shadow-sm space-y-2">
-          <span className="text-xs font-bold text-slate-300">Entrenadores encontrados:</span>
-          <div className="space-y-2">
-            {searchResults.map((u) => (
-              <div key={u.id} className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl text-xs">
-                <div>
-                  <span className="font-bold text-slate-100">{u.username}</span>
-                  <span className="text-slate-500 ml-2">({u.email})</span>
-                </div>
-                {u.friendship_status === 'accepted' ? (
-                  <span className="text-emerald-400 font-semibold">Ya son amigos</span>
-                ) : u.friendship_status === 'pending' ? (
-                  <span className="text-amber-400 font-semibold">
-                    {u.is_sender ? 'Solicitud enviada' : 'Solicitud pendiente'}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => handleSendFriendRequest(u.id)}
-                    className="px-3 py-1 bg-slate-800 text-cyan-400 hover:bg-slate-750 border border-cyan-500/30 font-bold rounded-lg text-xs"
-                  >
-                    Enviar solicitud
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* MIS AMIGOS Y RETOS */}
-      <section className="bg-[#0b1222] rounded-3xl p-5 sm:p-7 border border-slate-800 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
-            Mis Amigos ({friends.length})
-          </h3>
-          {sentFriendRequests.length > 0 && (
-            <span className="text-[11px] text-amber-400 font-mono">
-              {sentFriendRequests.length} {sentFriendRequests.length === 1 ? 'solicitud enviada pendiente' : 'solicitudes enviadas pendientes'}
-            </span>
+            </section>
           )}
-        </div>
 
-        {loading ? (
-          <div className="text-center py-8 text-xs text-slate-500">Cargando amigos...</div>
-        ) : friends.length === 0 ? (
-          <div className="text-center py-6 text-xs text-slate-500">
-            Aún no tienes amigos. Busca jugadores arriba y envíales una solicitud de amistad.
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {friends.map((friend) => (
-              <div 
-                key={friend.id}
-                className="p-3.5 bg-slate-900/60 hover:bg-slate-900 rounded-2xl border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold flex items-center justify-center text-xs">
-                    {friend.username.slice(0, 2).toUpperCase()}
+          {/* BUSCADOR DE ENTRENADORES */}
+          <form onSubmit={handleSearch} className="flex gap-2 max-w-xl w-full">
+            <div className="relative flex-1 min-w-0">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Buscar entrenadores por nombre o correo..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-3 py-2.5 bg-[#0b1222] border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 shadow-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={searching}
+              className="px-3.5 sm:px-5 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border border-slate-700 font-bold rounded-xl text-xs sm:text-sm shadow-sm shrink-0"
+            >
+              {searching ? '...' : 'Buscar'}
+            </button>
+          </form>
+
+          {searchResults.length > 0 && (
+            <div className="bg-[#0b1222] p-4 rounded-2xl border border-slate-800 shadow-sm space-y-2">
+              <span className="text-xs font-bold text-slate-300">Entrenadores encontrados:</span>
+              <div className="space-y-2">
+                {searchResults.map((u) => (
+                  <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-slate-900 rounded-xl text-xs">
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-100">{u.username}</span>
+                      <span className="text-slate-500 ml-2 break-all">({u.email})</span>
+                    </div>
+                    {u.friendship_status === 'accepted' ? (
+                      <span className="text-emerald-400 font-semibold shrink-0">Ya son amigos</span>
+                    ) : u.friendship_status === 'pending' ? (
+                      <span className="text-amber-400 font-semibold shrink-0">
+                        {u.is_sender ? 'Solicitud enviada' : 'Solicitud pendiente'}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleSendFriendRequest(u.id)}
+                        className="px-3 py-1.5 bg-slate-800 text-cyan-400 hover:bg-slate-750 border border-cyan-500/30 font-bold rounded-lg text-xs self-start sm:self-auto shrink-0"
+                      >
+                        Enviar solicitud
+                      </button>
+                    )}
                   </div>
-
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-100">{friend.username}</h4>
-                    <span className="text-[10px] text-slate-500">{friend.email}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleChallengeFriend(friend, 'amistoso')}
-                    className="px-3.5 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs shadow-sm transition-all"
-                    title="Todos los Pokémon combaten igualados a Nivel 5"
-                  >
-                    Combate Amistoso
-                  </button>
-                  <button
-                    onClick={() => handleChallengeFriend(friend, 'normal')}
-                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-cyan-500/40 font-bold rounded-xl text-xs shadow-sm transition-all"
-                  >
-                    Retar
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            </div>
+          )}
+
+          {/* MIS AMIGOS, RETOS E INTERCAMBIOS */}
+          <section className="bg-[#0b1222] rounded-3xl p-4 sm:p-7 border border-slate-800 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
+                Mis Amigos ({friends.length})
+              </h3>
+              {sentFriendRequests.length > 0 && (
+                <span className="text-[11px] text-amber-400 font-mono">
+                  {sentFriendRequests.length} {sentFriendRequests.length === 1 ? 'solicitud enviada pendiente' : 'solicitudes enviadas pendientes'}
+                </span>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="text-center py-8 text-xs text-slate-500">Cargando amigos...</div>
+            ) : friends.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-500">
+                Aún no tienes amigos. Busca jugadores arriba y envíales una solicitud de amistad.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {friends.map((friend) => (
+                  <div 
+                    key={friend.id}
+                    className="p-3.5 bg-slate-900/60 hover:bg-slate-900 rounded-2xl border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
+                  >
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold flex items-center justify-center text-xs shrink-0">
+                        {friend.username.slice(0, 2).toUpperCase()}
+                      </div>
+
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-slate-100 truncate">{friend.username}</h4>
+                        <span className="text-[10px] text-slate-500 block truncate">{friend.email}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => setTradeFriendId(friend.id)}
+                        className="px-3 py-1.5 bg-emerald-950/70 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-500/40 font-bold rounded-xl text-xs shadow-sm transition-all flex items-center space-x-1"
+                        title="Proponer intercambio de cartas con este amigo"
+                      >
+                        <ArrowLeftRight size={13} />
+                        <span>Intercambiar</span>
+                      </button>
+                      <button
+                        onClick={() => handleChallengeFriend(friend, 'amistoso')}
+                        className="px-3 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs shadow-sm transition-all"
+                        title="Todos los Pokémon combaten igualados a Nivel 5"
+                      >
+                        Amistoso
+                      </button>
+                      <button
+                        onClick={() => handleChallengeFriend(friend, 'normal')}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-cyan-300 border border-cyan-500/40 font-bold rounded-xl text-xs shadow-sm transition-all"
+                      >
+                        Retar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       {/* MODAL CONFIGURAR EQUIPO */}
       {isEditingTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-6 max-w-3xl w-full max-h-[90vh] flex flex-col justify-between shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+          <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-4 sm:p-6 max-w-3xl w-full max-h-[92dvh] flex flex-col justify-between shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-black text-slate-100 uppercase tracking-wider">Seleccionar Equipo de 3</h3>
@@ -673,6 +736,18 @@ export default function FriendsBattlesView() {
           </div>
         </div>
       )}
+
+      {/* MODAL PROPONER INTERCAMBIO DIRECTO DESDE AMIGO */}
+      <TradeProposalModal
+        isOpen={Boolean(tradeFriendId)}
+        onClose={() => setTradeFriendId(null)}
+        initialFriendId={tradeFriendId}
+        onTradeCreated={(msg) => {
+          showAlert.success('¡Propuesta Enviada!', msg);
+          fetchPendingTradesCount();
+          setSubTab('intercambios');
+        }}
+      />
 
       {/* ARENA EN VIVO */}
       {activeBattleData && (

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middlewares/auth');
+const { generateMovesForPokemon } = require('../data/movesList');
 
 // Consultar estado general del Pase de Batalla
 router.get('/', authenticateToken, async (req, res) => {
@@ -144,17 +145,16 @@ router.post('/claim', authenticateToken, async (req, res) => {
       await client.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [rewardValue.gems, req.user.id]);
     }
     if (rewardValue.packType) {
-      // Otorgar cartas de sobre
-      const rates = rewardValue.packType === 'especial' 
-        ? { legendario: 0.05, rara: 0.25, poco_comun: 0.40, comun: 0.30 }
-        : { legendario: 0.01, rara: 0.10, poco_comun: 0.35, comun: 0.54 };
-      
       const cardsRes = await client.query('SELECT * FROM pokemon_cards ORDER BY RANDOM() LIMIT 5');
       for (const card of cardsRes.rows) {
+        const moves = generateMovesForPokemon(card.types, card.name);
+        const iv = Math.floor(75 + Math.random() * 26);
+        const def = Math.round(card.atk_base * 0.85 * (iv / 100));
+        const spd = Math.round((card.hp_base + card.atk_base) * 0.5 * (iv / 100));
         await client.query(`
-          INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk)
-          VALUES ($1, $2, 1, $3, $3, $4)
-        `, [req.user.id, card.id, card.hp_base, card.atk_base]);
+          INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk, def, spd, iv_percentage, moves)
+          VALUES ($1, $2, 1, $3, $3, $4, $5, $6, $7, $8)
+        `, [req.user.id, card.id, card.hp_base, card.atk_base, def, spd, iv, JSON.stringify(moves)]);
       }
     }
     if (rewardValue.items) {
@@ -168,10 +168,13 @@ router.post('/claim', authenticateToken, async (req, res) => {
     }
     // Si es nivel 50 garantizado (Blastoise EX con estadísticas mejoradas)
     if (rewardType === 'card_guaranteed' && rewardValue.cardId) {
+      const targetMeta = await client.query('SELECT name, types FROM pokemon_cards WHERE id = $1', [rewardValue.cardId]);
+      const meta = targetMeta.rows[0] || { name: 'Blastoise', types: ['Agua'] };
+      const moves = generateMovesForPokemon(meta.types, meta.name);
       await client.query(`
-        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk, is_in_team)
-        VALUES ($1, $2, 5, $3, $3, $4, true)
-      `, [req.user.id, rewardValue.cardId, rewardValue.hp || 330, rewardValue.atk || 190]);
+        INSERT INTO user_cards (user_id, card_id, level, current_hp, max_hp, atk, def, spd, iv_percentage, moves, is_in_team)
+        VALUES ($1, $2, 5, $3, $3, $4, 155, 130, 100, $5, true)
+      `, [req.user.id, rewardValue.cardId, rewardValue.hp || 330, rewardValue.atk || 190, JSON.stringify(moves)]);
     }
 
     // Registrar reclamo

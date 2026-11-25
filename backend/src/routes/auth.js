@@ -8,19 +8,33 @@ const { authenticateToken } = require('../middlewares/auth');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 const { generateMovesForPokemon } = require('../data/movesList');
 
-// Registrar nuevo usuario con Resend
+// Registrar nuevo usuario
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const rawUsername = (req.body.username || '').trim();
+    const rawEmail = (req.body.email || '').trim().toLowerCase();
+    const password = req.body.password || '';
 
-    if (!username || !email || !password) {
+    if (!rawUsername || !rawEmail || !password) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
-    // Verificar si ya existe
+    if (rawUsername.length < 3 || rawUsername.length > 30) {
+      return res.status(400).json({ error: 'El nombre de usuario debe tener entre 3 y 30 caracteres' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ error: 'El formato del correo electrónico no es válido' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    // Verificar si ya existe (insensible a mayúsculas/minúsculas)
     const existing = await db.query(
-      'SELECT id FROM users WHERE email = $1 OR username = $2',
-      [email.toLowerCase(), username]
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($2)',
+      [rawEmail, rawUsername]
     );
 
     if (existing.rows.length > 0) {
@@ -35,7 +49,7 @@ router.post('/register', async (req, res) => {
       INSERT INTO users (username, email, password_hash, role, is_verified, verification_token, coins, gems, battle_pass_xp, battle_pass_level)
       VALUES ($1, $2, $3, 'Normal', false, $4, 2000, 100, 0, 1)
       RETURNING id, username, email, role, is_verified, coins, gems, battle_pass_xp, battle_pass_level
-    `, [username, email.toLowerCase(), passwordHash, verificationToken]);
+    `, [rawUsername, rawEmail, passwordHash, verificationToken]);
 
     const newUser = result.rows[0];
 
@@ -57,11 +71,13 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Dar items iniciales
+    // Dar items iniciales (solo curaciones y revivir básicos; los prismas se obtienen en sobres)
     await db.query(`
       INSERT INTO user_items (user_id, item_key, quantity) VALUES
       ($1, 'potion_30', 3),
+      ($1, 'super_potion_75', 1),
       ($1, 'revive_10', 2)
+      ON CONFLICT (user_id, item_key) DO NOTHING
     `, [newUser.id]);
 
     // Enviar correo de verificación a través de Resend

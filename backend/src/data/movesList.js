@@ -312,10 +312,141 @@ const MOVES = {
     energyCost: 75,
     animationType: 'ground',
     description: 'Sacude la corteza terrestre provocando grietas y seísmos devastadores.'
+  },
+  // --- HADA / DRAGÓN / LUCHA / ROCA / VENENO / BICHO / VOLADOR ---
+  viento_feérico: {
+    id: 'viento_feerico',
+    name: 'Viento Feérico',
+    type: 'Hada',
+    category: 'fast',
+    power: 14,
+    energyGen: 18,
+    animationType: 'psychic',
+    description: 'Envuelve al rival en un torbellino mágico de energía feérica.'
+  },
+  fuerza_lunar: {
+    id: 'fuerza_lunar',
+    name: 'Fuerza Lunar',
+    type: 'Hada',
+    category: 'charged',
+    power: 90,
+    energyCost: 65,
+    animationType: 'psychic',
+    description: 'Invoca el poder luminoso de la luna para impactar al oponente.'
+  },
+  dragoaliento: {
+    id: 'dragoaliento',
+    name: 'Dragoaliento',
+    type: 'Dragón',
+    category: 'fast',
+    power: 16,
+    energyGen: 15,
+    animationType: 'fire',
+    description: 'Exhala una ráfaga mística de energía dracónica.'
+  },
+  garra_dragon: {
+    id: 'garra_dragon',
+    name: 'Garra Dragón',
+    type: 'Dragón',
+    category: 'charged',
+    power: 80,
+    energyCost: 50,
+    animationType: 'fire',
+    description: 'Desgarra al oponente con afiladas garras imbuídas de poder dragón.'
+  },
+  golpe_karate: {
+    id: 'golpe_karate',
+    name: 'Golpe Karate',
+    type: 'Lucha',
+    category: 'fast',
+    power: 15,
+    energyGen: 16,
+    animationType: 'normal',
+    description: 'Certero golpe marcial que rompe la guardia del adversario.'
+  },
+  a_bocajarro: {
+    id: 'a_bocajarro',
+    name: 'A Bocajarro',
+    type: 'Lucha',
+    category: 'charged',
+    power: 95,
+    energyCost: 70,
+    animationType: 'normal',
+    description: 'Embiste cuerpo a cuerpo sin reservas con potencia devastadora.'
+  },
+  lanzarrocas: {
+    id: 'lanzarrocas',
+    name: 'Lanzarrocas',
+    type: 'Roca',
+    category: 'fast',
+    power: 15,
+    energyGen: 15,
+    animationType: 'ground',
+    description: 'Arroja pesados peñascos contra el objetivo.'
+  },
+  avalancha: {
+    id: 'avalancha',
+    name: 'Avalancha',
+    type: 'Roca',
+    category: 'charged',
+    power: 80,
+    energyCost: 55,
+    animationType: 'ground',
+    description: 'Desata un alud de rocas gigantes sobre el campo.'
+  },
+  picotazo_ven: {
+    id: 'picotazo_ven',
+    name: 'Picotazo Venenoso',
+    type: 'Veneno',
+    category: 'fast',
+    power: 13,
+    energyGen: 18,
+    animationType: 'grass',
+    description: 'Aguijonea rápidamente inyectando toxinas.'
+  },
+  ataque_ala: {
+    id: 'ataque_ala',
+    name: 'Ataque Ala',
+    type: 'Volador',
+    category: 'fast',
+    power: 14,
+    energyGen: 17,
+    animationType: 'normal',
+    description: 'Golpea al rival desplegando sus alas a gran velocidad.'
+  },
+  pajaro_osado: {
+    id: 'pajaro_osado',
+    name: 'Pájaro Osado',
+    type: 'Volador',
+    category: 'charged',
+    power: 90,
+    energyCost: 65,
+    animationType: 'normal',
+    description: 'Se lanza en picada envuelto en aire cortante.'
+  },
+  picadura: {
+    id: 'picadura',
+    name: 'Picadura',
+    type: 'Bicho',
+    category: 'fast',
+    power: 13,
+    energyGen: 18,
+    animationType: 'grass',
+    description: 'Muerde velozmente al rival drenando su ventaja.'
+  },
+  tijera_x: {
+    id: 'tijera_x',
+    name: 'Tijera X',
+    type: 'Bicho',
+    category: 'charged',
+    power: 75,
+    energyCost: 45,
+    animationType: 'grass',
+    description: 'Corta en cruz con extremidades afiladas como guadañas.'
   }
 };
 
-// Generador de ataques para una especie (permite variaciones tipo Pokémon GO)
+// Generador de ataques para una especie
 function generateMovesForPokemon(types, pokemonName = '') {
   const primaryType = types[0] || 'Normal';
   
@@ -343,9 +474,30 @@ function generateMovesForPokemon(types, pokemonName = '') {
   } else if (primaryType === 'Hielo' || types.includes('Hielo')) {
     fastPool = ['canto_helado', 'burbuja'];
     chargedPool = ['rayo_hielo', 'ventisca', 'hidrobomba'];
+  } else if (primaryType === 'Hada' || types.includes('Hada')) {
+    fastPool = ['viento_feérico', 'ataque_rapido'];
+    chargedPool = ['fuerza_lunar', 'psiquico'];
+  } else if (primaryType === 'Dragón' || types.includes('Dragón')) {
+    fastPool = ['dragoaliento', 'ataque_rapido'];
+    chargedPool = ['garra_dragon', 'hiperrayo'];
+  } else if (primaryType === 'Lucha' || types.includes('Lucha')) {
+    fastPool = ['golpe_karate', 'placaje'];
+    chargedPool = ['a_bocajarro', 'golpe_cuerpo'];
+  } else if (primaryType === 'Roca' || primaryType === 'Tierra' || types.includes('Tierra') || types.includes('Roca')) {
+    fastPool = ['lanzarrocas', 'placaje'];
+    chargedPool = ['terremoto', 'avalancha'];
+  } else if (primaryType === 'Veneno' || types.includes('Veneno')) {
+    fastPool = ['picotazo_ven', 'placaje'];
+    chargedPool = ['bomba_lodo', 'golpe_cuerpo'];
+  } else if (primaryType === 'Bicho' || types.includes('Bicho')) {
+    fastPool = ['picadura', 'ataque_rapido'];
+    chargedPool = ['tijera_x', 'golpe_cuerpo'];
+  } else if (primaryType === 'Volador' || types.includes('Volador')) {
+    fastPool = ['ataque_ala', 'ataque_rapido'];
+    chargedPool = ['pajaro_osado', 'golpe_cuerpo'];
   }
 
-  // Selección aleatoria para generar variantes únicas (tipo Pokémon GO)
+  // Selección aleatoria para generar variantes únicas
   const fastKey = fastPool[Math.floor(Math.random() * fastPool.length)];
   const chargedKey = chargedPool[Math.floor(Math.random() * chargedPool.length)];
 
@@ -355,7 +507,8 @@ function generateMovesForPokemon(types, pokemonName = '') {
     name: primaryType === 'Agua' ? 'Acua Jet' :
           primaryType === 'Fuego' ? 'Nitrocarga' :
           primaryType === 'Eléctrico' ? 'Chispa Rápida' :
-          primaryType === 'Planta' ? 'Hoja Afilada' : 'Ataque Rápido',
+          primaryType === 'Planta' ? 'Hoja Afilada' :
+          primaryType === 'Hada' ? 'Brillo Mágico' : 'Ataque Rápido',
     type: primaryType,
     category: 'tactical',
     power: 28,
@@ -370,14 +523,15 @@ function generateMovesForPokemon(types, pokemonName = '') {
     id: 'guard_buff',
     name: primaryType === 'Fuego' ? 'Danza Dragón' :
           primaryType === 'Planta' ? 'Síntesis' :
-          primaryType === 'Agua' ? 'Refugio Marino' : 'Escudo Férreo',
+          primaryType === 'Agua' ? 'Refugio Marino' :
+          primaryType === 'Hada' ? 'Luz Lunar' : 'Escudo Férreo',
     type: primaryType,
     category: 'buff',
     power: 0,
     buffType: primaryType === 'Fuego' ? 'atk' : 'def',
     buffValue: 1.35,
     energyGen: 25,
-    healAmount: primaryType === 'Planta' ? 25 : 0,
+    healAmount: (primaryType === 'Planta' || primaryType === 'Hada') ? 25 : 0,
     animationType: 'buff',
     description: 'Canaliza energía táctica (+25⚡) y potencia las estadísticas de combate.'
   };
@@ -392,15 +546,22 @@ function generateMovesForPokemon(types, pokemonName = '') {
 
 // Tabla de efectividad de tipos
 const TYPE_EFFECTIVENESS = {
-  Fuego: { Planta: 1.5, Bicho: 1.5, Hielo: 1.5, Agua: 0.7, Roca: 0.7, Fuego: 0.7 },
-  Agua: { Fuego: 1.5, Tierra: 1.5, Roca: 1.5, Agua: 0.7, Planta: 0.7, Dragon: 0.7 },
-  Planta: { Agua: 1.5, Tierra: 1.5, Roca: 1.5, Fuego: 0.7, Planta: 0.7, Veneno: 0.7, Volador: 0.7 },
-  Eléctrico: { Agua: 1.5, Volador: 1.5, Eléctrico: 0.7, Planta: 0.7, Tierra: 0.5 },
-  Hielo: { Planta: 1.5, Tierra: 1.5, Volador: 1.5, Dragón: 1.5, Fuego: 0.7, Agua: 0.7, Hielo: 0.7 },
-  Fantasma: { Psíquico: 1.5, Fantasma: 1.5, Normal: 0.5 },
-  Psíquico: { Lucha: 1.5, Veneno: 1.5, Psíquico: 0.7 },
-  Tierra: { Fuego: 1.5, Eléctrico: 1.5, Veneno: 1.5, Roca: 1.5, Planta: 0.7, Volador: 0.5 },
-  Normal: { Fantasma: 0.5, Roca: 0.7 }
+  Fuego: { Planta: 1.5, Bicho: 1.5, Hielo: 1.5, Acero: 1.5, Agua: 0.7, Roca: 0.7, Fuego: 0.7, Dragón: 0.7 },
+  Agua: { Fuego: 1.5, Tierra: 1.5, Roca: 1.5, Agua: 0.7, Planta: 0.7, Dragón: 0.7 },
+  Planta: { Agua: 1.5, Tierra: 1.5, Roca: 1.5, Fuego: 0.7, Planta: 0.7, Veneno: 0.7, Volador: 0.7, Bicho: 0.7 },
+  Eléctrico: { Agua: 1.5, Volador: 1.5, Eléctrico: 0.7, Planta: 0.7, Dragón: 0.7, Tierra: 0.5 },
+  Hielo: { Planta: 1.5, Tierra: 1.5, Volador: 1.5, Dragón: 1.5, Fuego: 0.7, Agua: 0.7, Hielo: 0.7, Acero: 0.7 },
+  Fantasma: { Psíquico: 1.5, Fantasma: 1.5, Siniestro: 0.7, Normal: 0.5 },
+  Psíquico: { Lucha: 1.5, Veneno: 1.5, Psíquico: 0.7, Acero: 0.7, Siniestro: 0.5 },
+  Tierra: { Fuego: 1.5, Eléctrico: 1.5, Veneno: 1.5, Roca: 1.5, Acero: 1.5, Planta: 0.7, Volador: 0.5 },
+  Lucha: { Normal: 1.5, Hielo: 1.5, Roca: 1.5, Siniestro: 1.5, Acero: 1.5, Veneno: 0.7, Volador: 0.7, Psíquico: 0.7, Hada: 0.7, Fantasma: 0.5 },
+  Roca: { Fuego: 1.5, Hielo: 1.5, Volador: 1.5, Bicho: 1.5, Lucha: 0.7, Tierra: 0.7, Acero: 0.7 },
+  Dragón: { Dragón: 1.5, Acero: 0.7, Hada: 0.5 },
+  Hada: { Lucha: 1.5, Dragón: 1.5, Siniestro: 1.5, Fuego: 0.7, Veneno: 0.7, Acero: 0.7 },
+  Veneno: { Planta: 1.5, Hada: 1.5, Veneno: 0.7, Tierra: 0.7, Roca: 0.7, Fantasma: 0.7, Acero: 0.5 },
+  Bicho: { Planta: 1.5, Psíquico: 1.5, Siniestro: 1.5, Fuego: 0.7, Lucha: 0.7, Veneno: 0.7, Volador: 0.7, Fantasma: 0.7, Hada: 0.7 },
+  Volador: { Planta: 1.5, Lucha: 1.5, Bicho: 1.5, Eléctrico: 0.7, Roca: 0.7, Acero: 0.7 },
+  Normal: { Fantasma: 0.5, Roca: 0.7, Acero: 0.7 }
 };
 
 function getEffectivenessMultiplier(attackType, defenderTypes = []) {

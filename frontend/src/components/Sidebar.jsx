@@ -18,7 +18,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'sobres-tienda', label: 'Sobres y Tienda', shortLabel: 'Tienda', icon: Package },
     { id: 'pokedex', label: 'Pokédex', shortLabel: 'Pokédex', icon: BookOpen },
     { id: 'pase-batalla', label: 'Pase de Batalla', shortLabel: 'Pase', icon: Trophy },
-    { id: 'amigos-retos', label: 'Amigos y Combates', shortLabel: 'Combates', icon: Users },
+    { id: 'amigos-retos', label: 'Amigos y Combates', shortLabel: 'Amigos', icon: Users },
     { id: 'mejorar-evolucionar', label: 'Mejorar y Evolucionar', shortLabel: 'Evolución', icon: Flame },
   ];
 
@@ -75,7 +75,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0b1222]/95 backdrop-blur-md border-t border-slate-800 px-1 py-1.5 flex items-center justify-around shadow-2xl select-none">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0b1222]/95 backdrop-blur-md border-t border-slate-800 px-1 pt-1.5 pb-[calc(0.35rem+env(safe-area-inset-bottom))] flex items-center justify-between shadow-2xl select-none">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -83,7 +83,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl min-w-[50px] transition-all ${
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center px-0.5 py-1 rounded-xl transition-all ${
                 isActive
                   ? item.isAdminOnly
                     ? 'text-red-400'
@@ -91,8 +91,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              <Icon size={18} />
-              <span className="text-[9px] font-bold mt-0.5 truncate max-w-[56px]">{item.shortLabel}</span>
+              <Icon size={17} />
+              <span className="text-[9px] font-bold mt-0.5 truncate w-full text-center">{item.shortLabel}</span>
             </button>
           );
         })}

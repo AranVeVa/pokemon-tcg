@@ -98,7 +98,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
       {/* ======================================================== */}
       {/* 1. EDITORIAL & CINEMATIC HERO SECTION */}
       {/* ======================================================== */}
-      <section className="bg-gradient-to-br from-[#0c1527] via-[#090f1d] to-[#060913] rounded-3xl p-6 sm:p-10 lg:p-12 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.7)] relative overflow-hidden">
+      <section className="bg-gradient-to-br from-[#0c1527] via-[#090f1d] to-[#060913] rounded-3xl p-4 sm:p-10 lg:p-12 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.7)] relative overflow-hidden">
 
         {/* Subtle Ambient Radial Lighting */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full filter blur-[100px] pointer-events-none"></div>
@@ -203,7 +203,7 @@ export default function LandingView({ onOpenAuth, onExplore }) {
             </div>
 
             {/* Foreground Protagonist TCG Card (Pikachu Gold EX) */}
-            <div className="relative z-10 w-48 sm:w-56 h-68 sm:h-80 rounded-2xl bg-gradient-to-b from-[#18263f] via-[#0d1629] to-[#070b14] border-2 border-amber-400/70 p-3 shadow-[0_20px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.25)] holo-card animate-float">
+            <div className="relative z-10 w-48 sm:w-56 min-h-[17.5rem] sm:h-80 rounded-2xl bg-gradient-to-b from-[#18263f] via-[#0d1629] to-[#070b14] border-2 border-amber-400/70 p-3 shadow-[0_20px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(245,158,11,0.25)] holo-card animate-float">
 
               {/* Card Header */}
               <div className="flex items-center justify-between text-xs font-bold text-slate-200 border-b border-amber-500/30 pb-1.5">

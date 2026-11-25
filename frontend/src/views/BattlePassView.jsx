@@ -141,7 +141,7 @@ export default function BattlePassView({ onOpenStripe }) {
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left 9 Cols: The Dual Tracks (Free & Premium) */}
-        <div className="lg:col-span-9 bg-[#0b1222] rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl space-y-8 overflow-x-auto">
+        <div className="lg:col-span-9 min-w-0 bg-[#0b1222] rounded-3xl p-4 sm:p-8 border border-slate-800 shadow-xl space-y-8">
           
           {/* Track 1: Pase Gratuito */}
           <div>

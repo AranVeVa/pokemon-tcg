@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, Mail, Lock, User, CheckCircle2, AlertCircle, KeyRound, RefreshCw, Sparkles, Send, Zap } from 'lucide-react';
+import { X, Mail, Lock, User, CheckCircle2, AlertCircle, RefreshCw, Send, Zap } from 'lucide-react';
 import { apiRequest } from '../api';
+import { trackEvent } from '../utils/analytics';
 
 export default function AuthModal({ initialMode = 'login', onClose }) {
   const [mode, setMode] = useState(initialMode); // 'login' | 'register' | 'verify' | 'forgot' | 'reset'
@@ -24,6 +25,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setLoading(true);
     try {
       await login(emailOrUsername, password);
+      trackEvent('login', { method: 'password' });
       onClose();
     } catch (err) {
       setError(err.message);
@@ -38,6 +40,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setLoading(true);
     try {
       const res = await register(username, email, password);
+      trackEvent('sign_up', { method: 'email' });
       setInfoMessage('Hemos enviado un código de verificación de 6 dígitos a tu correo electrónico.');
       setMode('verify');
     } catch (err) {
@@ -132,41 +135,41 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in select-none">
-      <div className="bg-[#0b1222] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-750 flex flex-col md:flex-row relative text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in select-none overflow-y-auto">
+      <div className="bg-[#0b1222] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92dvh] overflow-y-auto border border-slate-750 flex flex-col md:flex-row relative text-slate-100 my-auto">
         
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-900 hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-100 transition-colors border border-slate-800"
+          className="absolute top-3.5 right-3.5 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900 hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-100 transition-colors border border-slate-800"
         >
           <X size={18} />
         </button>
 
         {/* Left Side: Art & Quick Demo */}
-        <div className="md:w-5/12 bg-gradient-to-br from-[#0c162c] via-[#091122] to-[#060b17] p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 relative overflow-hidden">
-          <div className="space-y-1 relative z-10">
+        <div className="md:w-5/12 bg-gradient-to-br from-[#0c162c] via-[#091122] to-[#060b17] p-5 sm:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 relative overflow-hidden shrink-0">
+          <div className="space-y-1 relative z-10 pr-8 md:pr-0">
             <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">Pokémon TCG Oficial</span>
-            <h3 className="text-2xl font-black text-slate-100 leading-tight">Tu colección te espera</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-100 leading-tight">Tu colección te espera</h3>
             <p className="text-xs text-slate-400 pt-1">
               Colecciona cartas de alta calidad con stats de combate, movimientos tácticos y animaciones de RPG.
             </p>
           </div>
 
           {/* Animated PokéAPI Sprites */}
-          <div className="my-6 flex items-center justify-center space-x-3 relative z-10">
+          <div className="my-4 sm:my-6 flex items-center justify-center space-x-3 relative z-10">
             <div className="p-2 bg-slate-950/60 rounded-2xl border border-slate-800">
               <img 
                 src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/25.gif" 
                 alt="Pikachu"
-                className="w-16 h-16 object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]"
+                className="w-12 h-12 sm:w-16 sm:h-16 object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]"
               />
             </div>
             <div className="p-2 bg-slate-950/60 rounded-2xl border border-slate-800">
               <img 
                 src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/7.gif" 
                 alt="Squirtle"
-                className="w-16 h-16 object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]"
+                className="w-12 h-12 sm:w-16 sm:h-16 object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]"
               />
             </div>
           </div>
@@ -211,7 +214,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
         </div>
 
         {/* Right Side: Dynamic Form */}
-        <div className="md:w-7/12 p-8 sm:p-10 flex flex-col justify-center">
+        <div className="md:w-7/12 p-5 sm:p-10 flex flex-col justify-center">
           
           {error && (
             <div className="mb-4 p-3 bg-red-950/70 border border-red-500/40 text-red-300 rounded-xl text-xs flex items-center space-x-2">

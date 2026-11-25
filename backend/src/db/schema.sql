@@ -1,5 +1,6 @@
 -- Pokémon TCG Database Schema
 
+DROP TABLE IF EXISTS live_battles CASCADE;
 DROP TABLE IF EXISTS user_battle_pass_claims CASCADE;
 DROP TABLE IF EXISTS battle_pass_rewards CASCADE;
 DROP TABLE IF EXISTS trades CASCADE;
@@ -21,6 +22,8 @@ CREATE TABLE users (
   role VARCHAR(20) DEFAULT 'Normal' CHECK (role IN ('Normal', 'Premium', 'Admin')),
   is_verified BOOLEAN DEFAULT TRUE,
   verification_token VARCHAR(100),
+  reset_password_token VARCHAR(255),
+  reset_password_expires TIMESTAMP WITH TIME ZONE,
   coins INT DEFAULT 2000,
   gems INT DEFAULT 150,
   last_free_pack_claimed_at TIMESTAMP WITH TIME ZONE,

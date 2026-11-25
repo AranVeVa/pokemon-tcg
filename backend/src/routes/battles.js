@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middlewares/auth');
 const { generateMovesForPokemon, getEffectivenessMultiplier } = require('../data/movesList');
+const { ensureCatalogInitialized, DEFAULT_SYSTEM_CONFIGS } = require('../db/ensureCatalog');
 
 const FRIENDLY_FIXED_LEVEL = 5;
 
@@ -263,17 +264,29 @@ async function finalizeLiveBattle(client, battle, winnerId, loserId, battleType,
   };
 
   if (!isFriendly) {
-    const roll = Math.random();
-    if (roll < 0.40) winReward.itemDropped = 'potion_30';
-    else if (roll < 0.70) winReward.itemDropped = 'revive_10';
-    else if (roll < 0.90) winReward.itemDropped = 'revive_50';
-    else winReward.itemDropped = 'heal_full';
+    const cfgRes = await client.query("SELECT value FROM system_config WHERE key = 'item_drop_rates'");
+    const dropRates = cfgRes.rows[0]?.value || DEFAULT_SYSTEM_CONFIGS.item_drop_rates;
+    const entries = Object.entries(dropRates).filter(([, w]) => Number(w) > 0);
+    const totalW = entries.reduce((acc, [, w]) => acc + Number(w), 0);
+    let r = Math.random() * totalW;
+    let chosenKey = 'potion_30';
+    for (const [k, w] of entries) {
+      r -= Number(w);
+      if (r <= 0) {
+        chosenKey = k;
+        break;
+      }
+    }
+    winReward.itemDropped = chosenKey;
 
     await client.query(`
       INSERT INTO user_items (user_id, item_key, quantity)
       VALUES ($1, $2, 1)
       ON CONFLICT (user_id, item_key) DO UPDATE SET quantity = user_items.quantity + 1
     `, [winnerId, winReward.itemDropped]);
+
+    const itemMeta = await client.query('SELECT name FROM items WHERE item_key = $1', [winReward.itemDropped]);
+    winReward.itemDroppedName = itemMeta.rows[0]?.name || winReward.itemDropped;
 
     // Persistir HP restante en user_cards para ambos jugadores en reto oficial
     for (const card of [...cTeam, ...oTeam]) {
@@ -339,6 +352,7 @@ async function finalizeLiveBattle(client, battle, winnerId, loserId, battleType,
 
 router.get('/team', authenticateToken, async (req, res) => {
   try {
+    await ensureCatalogInitialized();
     let teamRes = await db.query(`
       SELECT 
         uc.id AS user_card_id,
@@ -815,6 +829,103 @@ router.post('/live/:battleId/action', authenticateToken, async (req, res) => {
           actionType: 'heal',
           healAmount: healed,
           targetSide: isChallenger ? 'challenger' : 'opponent'
+        };
+        turnNumber += 1;
+      } else if (actionType === 'use_item') {
+        const { itemKey, targetIndex } = req.body;
+        if (!itemKey) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Debes seleccionar un ítem de tu mochila.' });
+        }
+
+        const itemRes = await client.query(`
+          SELECT ui.quantity, i.*
+          FROM user_items ui
+          JOIN items i ON ui.item_key = i.item_key
+          WHERE ui.user_id = $1 AND ui.item_key = $2
+          FOR UPDATE
+        `, [req.user.id, itemKey]);
+
+        if (itemRes.rows.length === 0 || itemRes.rows[0].quantity <= 0) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'No tienes unidades disponibles de este objeto en tu mochila.' });
+        }
+
+        const item = itemRes.rows[0];
+        if (item.effect_type.startsWith('evolve')) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Los Prismas Evolutivos solo se usan en el Laboratorio de Evolución.' });
+        }
+
+        const tIdx = targetIndex !== undefined && targetIndex !== null ? parseInt(targetIndex, 10) : myActiveIdx;
+        const targetCard = myTeam[tIdx] || myActive;
+
+        let logMsg = '';
+        let eventExtra = { actionType: 'heal', healAmount: 0, itemName: item.name };
+
+        if (item.effect_type === 'heal_flat' || item.effect_type === 'heal_percent') {
+          if (targetCard.current_hp <= 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `${targetCard.name} está debilitado. Usa un Revivir.` });
+          }
+          if (targetCard.current_hp >= targetCard.max_hp) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `${targetCard.name} ya tiene toda su salud.` });
+          }
+          const oldHp = targetCard.current_hp;
+          targetCard.current_hp = item.effect_type === 'heal_percent'
+            ? targetCard.max_hp
+            : Math.min(targetCard.max_hp, targetCard.current_hp + item.effect_value);
+          const healed = targetCard.current_hp - oldHp;
+          logMsg = `${req.user.username} usó ${item.name} en ${targetCard.name} (+${healed} HP).`;
+          eventExtra = { actionType: 'heal', healAmount: healed, itemName: item.name };
+        } else if (item.effect_type === 'revive_percent' || item.effect_type === 'revive_full') {
+          if (targetCard.current_hp > 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `${targetCard.name} sigue en pie; elige un compañero debilitado.` });
+          }
+          const revivedHp = item.effect_type === 'revive_full'
+            ? targetCard.max_hp
+            : Math.max(1, Math.round(targetCard.max_hp * (item.effect_value / 100)));
+          targetCard.current_hp = revivedHp;
+          logMsg = `${req.user.username} usó ${item.name} y revivió a ${targetCard.name} (${revivedHp} HP)!`;
+          eventExtra = { actionType: 'heal', healAmount: revivedHp, itemName: item.name };
+        } else if (item.effect_type === 'battle_energy') {
+          const curEnergy = isChallenger ? cEnergy : oEnergy;
+          if (curEnergy >= 100) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Tu energía ya está al máximo (100⚡).' });
+          }
+          if (isChallenger) cEnergy = Math.min(100, cEnergy + item.effect_value);
+          else oEnergy = Math.min(100, oEnergy + item.effect_value);
+          logMsg = `${req.user.username} usó ${item.name} (+${item.effect_value}⚡ Energía).`;
+          eventExtra = { actionType: 'buff', moveName: item.name, moveType: 'Eléctrico' };
+        } else if (item.effect_type === 'battle_atk_buff') {
+          if (isChallenger) cAtkBuff = Math.min(1.75, +(cAtkBuff + item.effect_value / 100).toFixed(2));
+          else oAtkBuff = Math.min(1.75, +(oAtkBuff + item.effect_value / 100).toFixed(2));
+          logMsg = `${req.user.username} usó ${item.name} (+${item.effect_value}% Ataque).`;
+          eventExtra = { actionType: 'buff', moveName: item.name, moveType: 'Fuego' };
+        } else if (item.effect_type === 'battle_def_buff') {
+          if (isChallenger) cDefBuff = Math.min(1.75, +(cDefBuff + item.effect_value / 100).toFixed(2));
+          else oDefBuff = Math.min(1.75, +(oDefBuff + item.effect_value / 100).toFixed(2));
+          logMsg = `${req.user.username} usó ${item.name} (+${item.effect_value}% Defensa).`;
+          eventExtra = { actionType: 'buff', moveName: item.name, moveType: 'Agua' };
+        } else {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Este objeto no se puede usar en combate.' });
+        }
+
+        await client.query(
+          'UPDATE user_items SET quantity = quantity - 1 WHERE user_id = $1 AND item_key = $2',
+          [req.user.id, itemKey]
+        );
+
+        logs.push(logMsg);
+        lastEvent = {
+          id: Date.now(),
+          actorId: req.user.id,
+          targetSide: isChallenger ? 'challenger' : 'opponent',
+          ...eventExtra
         };
         turnNumber += 1;
       } else if (actionType === 'attack') {

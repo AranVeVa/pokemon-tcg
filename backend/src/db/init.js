@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('./index');
 const { POKEMON_151 } = require('../data/pokemonList');
 const { determineRarity } = require('../services/pokeApiService');
+const { CATALOG_ITEMS, DEFAULT_SYSTEM_CONFIGS } = require('./ensureCatalog');
 
 async function initDB() {
   const client = await pool.connect();
@@ -16,14 +17,12 @@ async function initDB() {
     console.log('✅ Esquema y tablas creadas exitosamente.');
 
     // 2. Insertar Configuración del Sistema
-    await client.query(`
-      INSERT INTO system_config (key, value) VALUES
-      ('season_info', '{"name": "Temporada Primavera", "start": "2026-03-01", "end": "2026-06-30"}'::jsonb),
-      ('pack_rates_normal', '{"comun": 0.70, "poco_comun": 0.25, "rara": 0.05, "legendario": 0.00}'::jsonb),
-      ('pack_rates_special', '{"comun": 0.35, "poco_comun": 0.40, "rara": 0.22, "legendario": 0.03}'::jsonb),
-      ('pack_rates_legendary', '{"comun": 0.00, "poco_comun": 0.20, "rara": 0.40, "legendario": 0.40}'::jsonb),
-      ('item_drop_rates', '{"potion_30": 0.50, "revive_10": 0.30, "revive_50": 0.15, "heal_full": 0.04, "revive_full": 0.01}'::jsonb)
-    `);
+    for (const [key, value] of Object.entries(DEFAULT_SYSTEM_CONFIGS)) {
+      await client.query(
+        'INSERT INTO system_config (key, value) VALUES ($1, $2)',
+        [key, JSON.stringify(value)]
+      );
+    }
     console.log('✅ Configuración inicial del sistema guardada.');
 
     // 3. Insertar Catálogo de Pokémon (151 originales de Kanto)
@@ -62,15 +61,13 @@ async function initDB() {
     console.log('✅ 151 Cartas de Pokémon insertadas y relaciones de evolución configuradas.');
 
     // 4. Insertar Catálogo de Items
-    await client.query(`
-      INSERT INTO items (item_key, name, description, effect_type, effect_value, rarity, icon) VALUES
-      ('potion_30', 'Poción +30 HP', 'Recupera 30 puntos de vida de un Pokémon.', 'heal_flat', 30, 'comun', 'potion'),
-      ('heal_full', 'Cura total', 'Restaura el 100% de la vida de un Pokémon.', 'heal_percent', 100, 'rara', 'heal_full'),
-      ('revive_10', 'Revivir 10%', 'Revive a un Pokémon debilitado con 10% de salud.', 'revive_percent', 10, 'comun', 'revive_10'),
-      ('revive_50', 'Revivir 50%', 'Revive a un Pokémon debilitado con 50% de salud.', 'revive_percent', 50, 'poco_comun', 'revive_50'),
-      ('revive_full', 'Revivir Máximo', 'Revive a un Pokémon debilitado con salud completa (100%).', 'revive_full', 100, 'rara', 'revive_full')
-    `);
-    console.log('✅ Items insertados.');
+    for (const item of CATALOG_ITEMS) {
+      await client.query(`
+        INSERT INTO items (item_key, name, description, effect_type, effect_value, rarity, icon)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [item.item_key, item.name, item.description, item.effect_type, item.effect_value, item.rarity, item.icon]);
+    }
+    console.log(`✅ ${CATALOG_ITEMS.length} Items insertados.`);
 
     // 5. Insertar Niveles del Pase de Batalla (1 al 50)
     for (let lvl = 1; lvl <= 50; lvl++) {
@@ -186,7 +183,10 @@ async function initDB() {
       ($1, 'revive_10', 3),
       ($1, 'revive_50', 1),
       ($1, 'potion_30', 5),
+      ($1, 'super_potion_75', 2),
+      ($1, 'energy_boost', 2),
       ($1, 'heal_full', 1),
+      ($1, 'prisma_evolucion', 1),
       ($1, 'revive_full', 0)
     `, [ashId]);
     console.log('✅ Mochila de items de Ash_MX configurada.');

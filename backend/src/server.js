@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { PORT, INTERVALO_SOBRE_MIN, MODO_DEMO } = require('./config');
+const { ensureCatalogInitialized } = require('./db/ensureCatalog');
 
 const authRoutes = require('./routes/auth');
 const packsRoutes = require('./routes/packs');
@@ -61,4 +62,5 @@ app.listen(PORT, () => {
   console.log(`📡 URL: http://localhost:${PORT}`);
   console.log(`⏱️ Modo Demo: ${MODO_DEMO ? 'ACTIVO (Sobres cada 4 min)' : 'DESACTIVADO (Sobres cada 4 horas)'}`);
   console.log(`===============================================`);
+  ensureCatalogInitialized();
 });

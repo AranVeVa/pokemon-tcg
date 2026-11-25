@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -7,11 +7,11 @@ import AuthModal from './views/AuthModal';
 import PacksShopView from './views/PacksShopView';
 import PokedexView from './views/PokedexView';
 import UpgradeEvolveView from './views/UpgradeEvolveView';
-import TradesView from './views/TradesView';
 import BattlePassView from './views/BattlePassView';
 import FriendsBattlesView from './views/FriendsBattlesView';
 import AdminPanel from './views/AdminPanel';
 import StripeCheckoutModal from './views/StripeCheckoutModal';
+import { trackPageView } from './utils/analytics';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -20,11 +20,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('sobres-tienda');
   const [authModalMode, setAuthModalMode] = useState(null); // 'login' | 'register' | null
   const [showStripeModal, setShowStripeModal] = useState(false);
-  const [upgradeSelectedPokemonId, setUpgradeSelectedPokemonId] = useState(7); // Squirtle por defecto (Mockup 6)
+  const [upgradeSelectedPokemonId, setUpgradeSelectedPokemonId] = useState(7); // Squirtle por defecto
 
-  // Si no hay usuario y entra a una pestaña privada, redirigir a landing o abrir login
   const isPublicTab = activeTab === 'landing';
   const showLanding = !user || isPublicTab;
+
+  useEffect(() => {
+    if (!loading) {
+      const pageKey = showLanding ? 'landing' : activeTab;
+      trackPageView(`/${pageKey}`, `Pokémon TCG · ${pageKey}`);
+    }
+  }, [activeTab, showLanding, loading]);
 
   const handleSelectPokemonForUpgrade = (pokemonId) => {
     setUpgradeSelectedPokemonId(pokemonId);
@@ -62,7 +68,7 @@ export default function App() {
         )}
 
         {/* Content Area */}
-        <main className={`flex-1 p-3 sm:p-6 lg:p-8 min-w-0 pb-24 md:pb-8 ${!user || isPublicTab ? 'max-w-6xl mx-auto' : ''}`}>
+        <main className={`flex-1 p-3 sm:p-6 lg:p-8 min-w-0 overflow-x-clip pb-[calc(5.2rem+env(safe-area-inset-bottom))] md:pb-8 ${!user || isPublicTab ? 'max-w-6xl mx-auto' : ''}`}>
           
           {showLanding && (
             <LandingView 

@@ -11,6 +11,10 @@ export const TYPE_EFFECTIVENESS = {
   Lucha: { Normal: 1.5, Hielo: 1.5, Roca: 1.5, Siniestro: 1.5, Acero: 1.5, Veneno: 0.7, Volador: 0.7, Psíquico: 0.7, Bicho: 0.7, Hada: 0.7, Fantasma: 0.5 },
   Roca: { Fuego: 1.5, Hielo: 1.5, Volador: 1.5, Bicho: 1.5, Lucha: 0.7, Tierra: 0.7, Acero: 0.7 },
   Dragón: { Dragón: 1.5, Acero: 0.7, Hada: 0.5 },
+  Hada: { Lucha: 1.5, Dragón: 1.5, Siniestro: 1.5, Fuego: 0.7, Veneno: 0.7, Acero: 0.7 },
+  Veneno: { Planta: 1.5, Hada: 1.5, Veneno: 0.7, Tierra: 0.7, Roca: 0.7, Fantasma: 0.7, Acero: 0.5 },
+  Bicho: { Planta: 1.5, Psíquico: 1.5, Siniestro: 1.5, Fuego: 0.7, Lucha: 0.7, Veneno: 0.7, Volador: 0.7, Fantasma: 0.7, Hada: 0.7 },
+  Volador: { Planta: 1.5, Lucha: 1.5, Bicho: 1.5, Eléctrico: 0.7, Roca: 0.7, Acero: 0.7 },
   Normal: { Fantasma: 0.5, Roca: 0.7, Acero: 0.7 }
 };
 
