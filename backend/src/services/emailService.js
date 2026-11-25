@@ -97,16 +97,20 @@ async function sendVerificationEmail(to, username, code) {
   // 2. Intentar con Resend API
   if (resendClient) {
     try {
-      const result = await resendClient.emails.send({
+      const { data, error } = await resendClient.emails.send({
         from: 'Pokemon TCG <onboarding@resend.dev>',
         to: [to],
         subject,
         html
       });
-      console.log(`✅ Correo enviado exitosamente vía Resend API a ${to}`);
-      return { success: true, provider: 'resend', result };
+      if (error) {
+        console.warn(`⚠️ Error en Resend API enviando a ${to}:`, error.message);
+        return { success: false, provider: 'resend', error: error.message };
+      }
+      console.log(`✅ Correo enviado exitosamente vía Resend API a ${to}:`, data?.id);
+      return { success: true, provider: 'resend', data };
     } catch (err) {
-      console.warn(`⚠️ Error en Resend API enviando a ${to}:`, err.message);
+      console.warn(`⚠️ Excepción en Resend API enviando a ${to}:`, err.message);
     }
   }
 
@@ -175,16 +179,20 @@ async function sendPasswordResetEmail(to, username, resetToken) {
   // 2. Intentar con Resend API
   if (resendClient) {
     try {
-      const result = await resendClient.emails.send({
+      const { data, error } = await resendClient.emails.send({
         from: 'Pokemon TCG <onboarding@resend.dev>',
         to: [to],
         subject,
         html
       });
-      console.log(`✅ Correo de recuperación enviado vía Resend API a ${to}`);
-      return { success: true, provider: 'resend', result };
+      if (error) {
+        console.warn(`⚠️ Error en Resend API enviando recuperación a ${to}:`, error.message);
+        return { success: false, provider: 'resend', error: error.message };
+      }
+      console.log(`✅ Correo de recuperación enviado vía Resend API a ${to}:`, data?.id);
+      return { success: true, provider: 'resend', data };
     } catch (err) {
-      console.warn(`⚠️ Error en Resend API enviando recuperación a ${to}:`, err.message);
+      console.warn(`⚠️ Excepción en Resend API enviando recuperación a ${to}:`, err.message);
     }
   }
 
