@@ -10,7 +10,6 @@ import {
   Heart, 
   Zap, 
   Sparkles, 
-  CheckCircle2, 
   AlertCircle,
   Flame,
   Droplets,
@@ -23,20 +22,19 @@ import {
   Volume2,
   VolumeX,
   Briefcase,
-  Target,
   Clock,
   Trophy,
   Skull,
-  ChevronRight
+  ChevronRight,
+  Flag,
+  Loader2
 } from 'lucide-react';
 import { 
   getEffectivenessMultiplier, 
-  getEffectivenessLabel, 
-  get4MovesForCard 
+  getEffectivenessLabel 
 } from '../utils/typeEffectiveness';
 import { battleAudio } from '../utils/battleAudio';
 
-// Helper de estilos e iconos por tipo elemental
 const TYPE_CONFIG = {
   Fuego: { text: 'text-red-400', badge: 'bg-red-950/70 text-red-300 border-red-500/30', icon: Flame },
   Agua: { text: 'text-blue-400', badge: 'bg-blue-950/70 text-blue-300 border-blue-500/30', icon: Droplets },
@@ -49,39 +47,19 @@ const TYPE_CONFIG = {
 };
 
 export default function BattleArenaModal({ 
-  opponentName = 'Misty_01', 
-  battleType = 'normal', // 'amistoso' | 'normal'
-  initialCardId,
+  initialBattle,
+  battleId: propBattleId,
   onClose,
   onBattleFinished
 }) {
   const { user, refreshUser } = useAuth();
-  const [battleState, setBattleState] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [battle, setBattle] = useState(initialBattle || null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(!initialBattle);
   const [actionLoading, setActionLoading] = useState(false);
-  const [battleLogs, setBattleLogs] = useState([]);
-  
-  // Turn State RPG: 'player' | 'opp'
-  const [turn, setTurn] = useState('player');
-  const [turnNumber, setTurnNumber] = useState(1);
 
-  // Audio Toggle
   const [soundOn, setSoundOn] = useState(true);
-
-  // Command Deck Sub-view: 'attack' | 'shield' | 'bag' | 'switch'
   const [activeMenuTab, setActiveMenuTab] = useState('attack');
-
-  // Pokémon GO Energy Gauge (0 - 100%)
-  const [energy, setEnergy] = useState(20);
-  const [oppEnergy, setOppEnergy] = useState(15);
-
-  // Buffs / Shields
-  const [playerShieldActive, setPlayerShieldActive] = useState(false);
-  const [playerAtkBuff, setPlayerAtkBuff] = useState(1.0);
-  const [playerDefBuff, setPlayerDefBuff] = useState(1.0);
-
-  // Replacement State when Active Pokémon Faints
-  const [mustSwitchCard, setMustSwitchCard] = useState(false);
 
   // Cinematic FX
   const [activeAnimation, setActiveAnimation] = useState(null);
@@ -91,713 +69,353 @@ export default function BattleArenaModal({
   const [screenShake, setScreenShake] = useState(false);
   const [chargedCircleFX, setChargedCircleFX] = useState(false);
 
-  // End Game
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [battleResult, setBattleResult] = useState(null);
-  const [rewardInfo, setRewardInfo] = useState(null);
-
-  // Refs to avoid stale closures in async timeouts
-  const activeCardRef = useRef(null);
-  const userTeamRef = useRef([]);
-  const opponentHpRef = useRef(0);
+  const lastProcessedEventId = useRef(initialBattle?.lastEvent?.id || null);
+  const activeBattleId = battle?.id || propBattleId;
 
   useEffect(() => {
-    startBattle();
+    fetchTeamItems();
+    if (!initialBattle && propBattleId) {
+      syncBattleState(propBattleId);
+    }
   }, []);
+
+  // Polling continuo cuando está pendiente de aceptación o esperando jugada del rival
+  useEffect(() => {
+    if (!activeBattleId) return;
+    if (battle && ['finished', 'rejected', 'cancelled'].includes(battle.status)) return;
+
+    const interval = setInterval(() => {
+      syncBattleState(activeBattleId);
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [activeBattleId, battle?.status]);
+
+  // Efecto al recibir evento nuevo del servidor (ataques, curaciones, cambios, fin)
+  useEffect(() => {
+    if (!battle) return;
+
+    if (battle.mustISwitch) {
+      setActiveMenuTab('switch');
+    }
+
+    if (battle.status === 'rejected') {
+      showAlert.info('Reto Rechazado', `${battle.opponentName} rechazó el combate.`);
+      onClose();
+      return;
+    }
+
+    if (battle.status === 'cancelled') {
+      showAlert.info('Reto Cancelado', 'El reto ha sido cancelado o expiró.');
+      onClose();
+      return;
+    }
+
+    const ev = battle.lastEvent;
+    if (ev && ev.id && ev.id !== lastProcessedEventId.current) {
+      lastProcessedEventId.current = ev.id;
+      triggerEventFX(ev);
+    }
+
+    if (battle.status === 'finished') {
+      if (battle.didIWin) {
+        battleAudio.playVictory();
+        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+      }
+      refreshUser();
+      if (onBattleFinished) onBattleFinished();
+    }
+  }, [battle]);
+
+  const fetchTeamItems = async () => {
+    try {
+      const data = await apiRequest('/battles/team');
+      setItems(data.items || []);
+    } catch (e) {
+      console.warn('Error cargando items:', e);
+    }
+  };
+
+  const syncBattleState = async (id) => {
+    try {
+      const res = await apiRequest(`/battles/live/${id}`);
+      if (res?.battle) {
+        setBattle(res.battle);
+      }
+    } catch (err) {
+      console.warn('Error sincronizando batalla:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerEventFX = (ev) => {
+    const isActorMe = ev.actorId === user?.id;
+
+    if (ev.actionType === 'attack') {
+      if (ev.isCharged) {
+        setChargedCircleFX(true);
+        battleAudio.playAttack(ev.moveType, true);
+      } else {
+        battleAudio.playAttack(ev.moveType, false);
+      }
+
+      setAttackerAction(isActorMe ? 'player' : 'opp');
+      setActiveAnimation(ev.animationType || 'normal');
+      setHitTarget(isActorMe ? 'opp' : 'player');
+      setScreenShake(true);
+
+      if (ev.isCrit) battleAudio.playCrit();
+
+      setFloatingDamage({
+        text: `-${ev.damage} HP`,
+        extra: ev.effectivenessText,
+        target: isActorMe ? 'opp' : 'player'
+      });
+
+      setTimeout(() => {
+        setChargedCircleFX(false);
+        setAttackerAction(null);
+        setHitTarget(null);
+        setActiveAnimation(null);
+        setScreenShake(false);
+        setFloatingDamage(null);
+      }, 950);
+    } else if (ev.actionType === 'heal') {
+      battleAudio.playHeal();
+      setFloatingDamage({
+        text: `+${ev.healAmount || 50} HP`,
+        extra: 'Poción de Campo',
+        target: isActorMe ? 'player' : 'opp',
+        isHeal: true
+      });
+      setTimeout(() => setFloatingDamage(null), 950);
+    } else if (ev.actionType === 'shield') {
+      battleAudio.playShield();
+    } else if (ev.actionType === 'buff') {
+      setActiveAnimation('buff');
+      setTimeout(() => setActiveAnimation(null), 700);
+    }
+  };
 
   const toggleSound = () => {
     const newState = battleAudio.toggle();
     setSoundOn(newState);
   };
 
-  const startBattle = async () => {
-    setLoading(true);
-    try {
-      const data = await apiRequest('/battles/start', 'POST', {
-        opponentName,
-        battleType,
-        selectedUserCardId: initialCardId,
-        opponentCardId: 131 // Lapras
-      });
-
-      let team = data.userTeam || [];
-      let userActive = data.activeUserCard;
-
-      if (battleType === 'amistoso') {
-        team = team.map(c => ({ ...c, current_hp: c.max_hp }));
-        if (userActive) userActive.current_hp = userActive.max_hp;
-      }
-
-      activeCardRef.current = userActive;
-      userTeamRef.current = team;
-      opponentHpRef.current = data.opponent?.currentHp || 300;
-
-      const teamData = await apiRequest('/battles/team');
-
-      setBattleState({
-        ...data,
-        activeUserCard: userActive,
-        userTeam: team,
-        items: teamData.items || []
-      });
-
-      setBattleLogs([
-        `Estadio Pokémon — Inicio de Combate.`,
-        `Modalidad: ${battleType === 'normal' ? 'Combate Oficial Clasificatorio' : 'Sparring Amistoso'}.`,
-        `${opponentName} envía a ${data.opponent.name} (Nv. ${data.opponent.level}).`,
-        `¡Adelante, ${userActive.name}! (IV: ${userActive.iv_percentage || 85}%).`
-      ]);
-    } catch (err) {
-      showAlert.error('Error al iniciar', err.message);
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calcular daño usando Stats, Multiplicadores, STAB, Crítico y Buffs
-  const calculateDamage = (attacker, defender, move, isAttackerPlayer) => {
-    let mult = 1.0;
-    try {
-      mult = getEffectivenessMultiplier(move.type, defender.types || []);
-    } catch (e) {
-      mult = 1.0;
-    }
-
-    const hasStab = attacker.types?.includes(move.type);
-    const stabBonus = hasStab ? 1.25 : 1.0;
-
-    const baseCritRate = (attacker.spd || 50) / 280;
-    const extraCrit = move.critBonus || 0;
-    const isCrit = Math.random() < Math.min(0.65, baseCritRate + extraCrit);
-    const critMultiplier = isCrit ? 1.6 : 1.0;
-
-    const atkMultiplier = isAttackerPlayer ? playerAtkBuff : 1.0;
-    let defMultiplier = !isAttackerPlayer ? playerDefBuff : 1.0;
-
-    if (!isAttackerPlayer && playerShieldActive) {
-      defMultiplier *= 4.0; // Reduce 75%
-    }
-
-    const rawAtk = (attacker.atk || 50) * atkMultiplier;
-    const rawDef = Math.max(15, (defender.def || 45) * defMultiplier);
-    const baseDamage = ((rawAtk * (move.power || 20)) / (rawDef * 1.4)) * mult * stabBonus * critMultiplier;
-    const damage = Math.max(4, Math.round(baseDamage + (Math.random() * 5)));
-
-    let effectivenessText = '';
-    if (mult >= 1.5) effectivenessText = '¡Súper eficaz!';
-    else if (mult <= 0.7) effectivenessText = 'Poco eficaz...';
-    if (isCrit) effectivenessText += ' ¡Golpe Crítico!';
-    if (!isAttackerPlayer && playerShieldActive) effectivenessText += ' [Escudo mitigó 75%]';
-
-    return { damage, mult, isCrit, effectivenessText };
-  };
-
-  // 1. EJECUTAR ATAQUE DEL JUGADOR
-  const handlePlayerAttack = (move) => {
-    if (isGameOver || actionLoading || turn !== 'player' || mustSwitchCard) return;
-    
-    if (move.category === 'charged' && energy < (move.energyCost || 45)) {
-      showAlert.warning('Energía Insuficiente', `Requiere ${move.energyCost || 45} de Energía para ${move.name}.`);
-      return;
-    }
-
+  const sendAction = async (payload) => {
+    if (!battle || actionLoading) return;
     setActionLoading(true);
     battleAudio.playButton();
-
-    const activeCard = activeCardRef.current || battleState.activeUserCard;
-    const { opponent } = battleState;
-
-    if (move.category === 'buff') {
-      executeBuffMove(move, activeCard);
-      return;
-    }
-
-    const isCharged = move.category === 'charged';
-    if (isCharged) {
-      setChargedCircleFX(true);
-      battleAudio.playAttack(move.type, true);
-    } else {
-      battleAudio.playAttack(move.type, false);
-    }
-
-    setAttackerAction('player');
-    setActiveAnimation(move.animationType || 'normal');
-
-    setTimeout(() => {
-      setChargedCircleFX(false);
-      setAttackerAction(null);
-      setHitTarget('opp');
-      setScreenShake(true);
-
-      const { damage, mult, isCrit, effectivenessText } = calculateDamage(activeCard, opponent, move, true);
-      const newOpponentHp = Math.max(0, opponent.currentHp - damage);
-      opponentHpRef.current = newOpponentHp;
-
-      if (isCrit) battleAudio.playCrit();
-
-      setFloatingDamage({
-        text: `-${damage} HP`,
-        extra: effectivenessText,
-        target: 'opp'
-      });
-
-      let newEnergy = energy;
-      if (move.category === 'charged') {
-        newEnergy = Math.max(0, energy - (move.energyCost || 45));
-      } else {
-        newEnergy = Math.min(100, energy + (move.energyGen || 18));
-      }
-      setEnergy(newEnergy);
-
-      const newLogs = [
-        ...battleLogs,
-        `${activeCard.name} usó ${move.name}: ${damage} de daño. ${effectivenessText}`
-      ];
-
-      setTimeout(() => {
-        setHitTarget(null);
-        setActiveAnimation(null);
-        setFloatingDamage(null);
-        setScreenShake(false);
-
-        // Victoria
-        if (newOpponentHp <= 0) {
-          battleAudio.playVictory();
-          newLogs.push(`¡${opponent.name} ha caído debilitado! Victoria para ${user.username}.`);
-          setBattleLogs(newLogs);
-          setBattleState(prev => ({
-            ...prev,
-            opponent: { ...prev.opponent, currentHp: 0 }
-          }));
-          finishBattle('victoria', activeCard.current_hp);
-          return;
+    try {
+      const res = await apiRequest(`/battles/live/${battle.id}/action`, 'POST', payload);
+      if (res?.battle) {
+        if (res.battle.lastEvent?.id) {
+          lastProcessedEventId.current = res.battle.lastEvent.id;
+          triggerEventFX(res.battle.lastEvent);
         }
-
-        // Actualizar vida rival y pasar turno al oponente
-        setBattleState(prev => ({
-          ...prev,
-          opponent: { ...prev.opponent, currentHp: newOpponentHp }
-        }));
-        setBattleLogs(newLogs);
-        setTurn('opp');
-
-        setTimeout(() => {
-          executeOpponentTurn(newOpponentHp, activeCardRef.current);
-        }, 700);
-
-      }, 700);
-
-    }, isCharged ? 750 : 450);
-  };
-
-  // Movimiento de Refuerzo / Buff
-  const executeBuffMove = (move, activeCard) => {
-    setActiveAnimation('buff');
-    battleAudio.playShield();
-
-    setTimeout(() => {
-      setActiveAnimation(null);
-      setEnergy(prev => Math.min(100, prev + (move.energyGen || 25)));
-
-      let logMsg = `${activeCard.name} usó ${move.name}.`;
-
-      if (move.buffType === 'atk') {
-        setPlayerAtkBuff(prev => prev * 1.35);
-        logMsg += ' Ataque aumentado en 35%.';
-      } else if (move.healAmount) {
-        const healed = Math.min(activeCard.max_hp, activeCard.current_hp + move.healAmount);
-        activeCard.current_hp = healed;
-        activeCardRef.current = { ...activeCard };
-        setBattleState(prev => ({
-          ...prev,
-          activeUserCard: { ...activeCard }
-        }));
-        setFloatingDamage({ text: `+${move.healAmount} HP`, target: 'player', isHeal: true });
-        logMsg += ` Recuperó ${move.healAmount} HP.`;
-      } else {
-        setPlayerDefBuff(prev => prev * 1.35);
-        logMsg += ' Defensa aumentada en 35%.';
-      }
-
-      setBattleLogs(prev => [...prev, logMsg]);
-
-      setTimeout(() => {
-        setFloatingDamage(null);
-        setTurn('opp');
-        setTimeout(() => {
-          executeOpponentTurn(opponentHpRef.current, activeCardRef.current);
-        }, 700);
-      }, 650);
-
-    }, 500);
-  };
-
-  // 2. ACTIVAR ESCUDO / ESQUIVA
-  const handleActivateShield = () => {
-    if (isGameOver || actionLoading || turn !== 'player' || mustSwitchCard) return;
-    setActionLoading(true);
-    battleAudio.playShield();
-
-    setPlayerShieldActive(true);
-    setEnergy(prev => Math.min(100, prev + 25));
-
-    const activeCard = activeCardRef.current || battleState.activeUserCard;
-    setBattleLogs(prev => [
-      ...prev,
-      `${activeCard.name} adopta posición defensiva. Daño reducido en 75% y +25 de energía.`
-    ]);
-
-    setTimeout(() => {
-      setTurn('opp');
-      setTimeout(() => {
-        executeOpponentTurn(opponentHpRef.current, activeCardRef.current);
-      }, 700);
-    }, 600);
-  };
-
-  // 3. TURNO DEL RIVAL (IA RPG)
-  const executeOpponentTurn = (currentOppHp, targetPlayerCard) => {
-    if (currentOppHp <= 0 || isGameOver) return;
-    const opponent = battleState.opponent;
-    const activeCard = targetPlayerCard || activeCardRef.current || battleState.activeUserCard;
-
-    // Si el Pokémon activo ya estaba debilitado (ej. tras caer), no atacar
-    if (activeCard.current_hp <= 0) {
-      setActionLoading(false);
-      setTurn('player');
-      return;
-    }
-
-    const oppMoves = opponent.moves || [];
-    let chosenMove = oppMoves[0] || { name: 'Placaje Rápido', power: 18, type: 'Normal', animationType: 'normal' };
-
-    if (oppMoves.length > 1 && oppEnergy >= 45) {
-      chosenMove = oppMoves[1];
-      setOppEnergy(0);
-      battleAudio.playAttack(chosenMove.type || 'normal', true);
-    } else {
-      setOppEnergy(prev => Math.min(100, prev + 22));
-      battleAudio.playAttack(chosenMove.type || 'normal', false);
-    }
-
-    setAttackerAction('opp');
-    setActiveAnimation(chosenMove.animationType || 'normal');
-
-    setTimeout(() => {
-      setAttackerAction(null);
-      setHitTarget('player');
-      setScreenShake(true);
-
-      const { damage, mult, isCrit, effectivenessText } = calculateDamage(opponent, activeCard, chosenMove, false);
-      const newUserHp = Math.max(0, activeCard.current_hp - damage);
-
-      // Actualizar tarjeta activa y equipo en los refs
-      activeCard.current_hp = newUserHp;
-      activeCardRef.current = { ...activeCard };
-
-      const updatedTeam = (userTeamRef.current || []).map(c => 
-        c.user_card_id === activeCard.user_card_id ? { ...c, current_hp: newUserHp } : c
-      );
-      userTeamRef.current = updatedTeam;
-
-      setFloatingDamage({
-        text: `-${damage} HP`,
-        extra: effectivenessText,
-        target: 'player'
-      });
-
-      const updatedLogs = [
-        ...battleLogs,
-        `${opponent.name} rival lanzó ${chosenMove.name}: infligió ${damage} de daño. ${effectivenessText}`
-      ];
-
-      setTimeout(() => {
-        setHitTarget(null);
-        setActiveAnimation(null);
-        setFloatingDamage(null);
-        setScreenShake(false);
-        setPlayerShieldActive(false);
-
-        setBattleState(prev => ({
-          ...prev,
-          activeUserCard: { ...activeCard },
-          userTeam: updatedTeam
-        }));
-
-        // Si el Pokémon activo ha quedado debilitado
-        if (newUserHp <= 0) {
-          updatedLogs.push(`${activeCard.name} ha caído debilitado.`);
-          setBattleLogs(updatedLogs);
-
-          // Verificar si aún quedan otros Pokémon con vida en el equipo de 3
-          const remainingAlive = updatedTeam.filter(c => c.current_hp > 0);
-
-          if (remainingAlive.length > 0) {
-            // NO ES DERROTA: El jugador puede relevar con otro Pokémon del equipo
-            setMustSwitchCard(true);
-            setActiveMenuTab('switch');
-            setActionLoading(false);
-            setTurn('player');
-          } else {
-            // TODOS los Pokémon han caído: Ahora sí es derrota
-            battleAudio.playDefeat();
-            updatedLogs.push('Todos los Pokémon de tu equipo han sido debilitados.');
-            setBattleLogs(updatedLogs);
-            finishBattle('derrota', 0);
-          }
-        } else {
-          // El combate sigue normalmente
-          setBattleLogs(updatedLogs);
-          setTurn('player');
-          setTurnNumber(prev => prev + 1);
-          setActionLoading(false);
+        setBattle(res.battle);
+        if (payload.actionType === 'switch' && !res.battle.mustISwitch) {
+          setActiveMenuTab('attack');
         }
-      }, 700);
-
-    }, 500);
-  };
-
-  // 4. USAR OBJETO EN COMBATE
-  const handleUseItemInBattle = async (itemKey) => {
-    if (isGameOver || actionLoading || mustSwitchCard) return;
-    setActionLoading(true);
-    battleAudio.playHeal();
-
-    try {
-      const activeCard = activeCardRef.current || battleState.activeUserCard;
-      const res = await apiRequest('/items/use', 'POST', {
-        itemKey,
-        userCardId: activeCard.user_card_id
-      });
-
-      const healAmount = res.card.current_hp - activeCard.current_hp;
-      activeCard.current_hp = res.card.current_hp;
-      activeCardRef.current = { ...activeCard };
-
-      const updatedTeam = userTeamRef.current.map(c => 
-        c.user_card_id === activeCard.user_card_id ? { ...c, current_hp: res.card.current_hp } : c
-      );
-      userTeamRef.current = updatedTeam;
-
-      setBattleState(prev => ({
-        ...prev,
-        activeUserCard: { ...activeCard },
-        userTeam: updatedTeam,
-        items: prev.items.map(i => i.item_key === itemKey ? { ...i, quantity: res.remainingQuantity } : i)
-      }));
-
-      setFloatingDamage({
-        text: `+${healAmount} HP`,
-        extra: 'Recuperado',
-        target: 'player',
-        isHeal: true
-      });
-
-      setBattleLogs(prev => [
-        ...prev,
-        `Usaste ${res.item?.name || 'Objeto'} en ${activeCard.name}: recuperó ${healAmount} HP.`
-      ]);
-
-      setTimeout(() => {
-        setFloatingDamage(null);
-        setActiveMenuTab('attack');
-        setTurn('opp');
-        setTimeout(() => {
-          executeOpponentTurn(opponentHpRef.current, activeCardRef.current);
-        }, 700);
-      }, 750);
-
-    } catch (err) {
-      showAlert.error('Objeto no disponible', err.message);
-      setActionLoading(false);
-    }
-  };
-
-  // Poción de Curación en Combate (+50 HP) — Consume el turno del jugador
-  const handleUseFieldPotion = async () => {
-    if (isGameOver || actionLoading || mustSwitchCard) return;
-    const activeCard = activeCardRef.current || battleState.activeUserCard;
-    if (activeCard.current_hp >= activeCard.max_hp) {
-      showAlert.info('Salud Máxima', `${activeCard.name} ya tiene sus puntos de vida al 100%.`);
-      return;
-    }
-
-    setActionLoading(true);
-    battleAudio.playHeal?.();
-
-    try {
-      const res = await apiRequest('/battles/heal-card', 'POST', {
-        userCardId: activeCard.user_card_id,
-        healAmount: 50
-      });
-
-      const healedAmount = res.currentHp - activeCard.current_hp;
-      activeCard.current_hp = res.currentHp;
-      activeCardRef.current = { ...activeCard };
-
-      const updatedTeam = userTeamRef.current.map(c => 
-        c.user_card_id === activeCard.user_card_id ? { ...c, current_hp: res.currentHp } : c
-      );
-      userTeamRef.current = updatedTeam;
-
-      setBattleState(prev => ({
-        ...prev,
-        activeUserCard: { ...activeCard },
-        userTeam: updatedTeam
-      }));
-
-      setFloatingDamage({
-        text: `+${healedAmount} HP`,
-        extra: 'Poción Usada',
-        target: 'player',
-        isHeal: true
-      });
-
-      setBattleLogs(prev => [
-        ...prev,
-        `Usaste una Poción en ${activeCard.name}: recuperó +${healedAmount} HP. El rival aprovecha tu acción para atacar.`
-      ]);
-
-      setTimeout(() => {
-        setFloatingDamage(null);
-        setActiveMenuTab('attack');
-        setTurn('opp');
-        setTimeout(() => {
-          executeOpponentTurn(opponentHpRef.current, activeCardRef.current);
-        }, 700);
-      }, 750);
-
-    } catch (err) {
-      showAlert.error('Error al aplicar poción', err.message);
-      setActionLoading(false);
-    }
-  };
-
-  // 5. RELEVAR / CAMBIAR POKÉMON EN COMBATE (Corregido y blindado contra falsas derrotas)
-  const handleSwitchPokemon = (targetCard) => {
-    if (isGameOver || actionLoading) return;
-    
-    // Si la carta seleccionada está debilitada
-    if (targetCard.current_hp <= 0 && battleType === 'normal') {
-      showAlert.warning('Pokémon Debilitado', `${targetCard.name} no puede combatir. Usa objetos de revivir para recuperarlo.`);
-      return;
-    }
-
-    // Si ya es la carta activa
-    if (activeCardRef.current && targetCard.user_card_id === activeCardRef.current.user_card_id) {
-      setActiveMenuTab('attack');
-      return;
-    }
-
-    setActionLoading(true);
-    battleAudio.playSwitchSound?.();
-
-    const previousCard = activeCardRef.current || battleState.activeUserCard;
-    const wasReplacementDueToFaint = mustSwitchCard;
-
-    // Actualizar referencia y estado
-    activeCardRef.current = targetCard;
-    setMustSwitchCard(false);
-    setEnergy(15);
-    setPlayerAtkBuff(1.0);
-    setPlayerDefBuff(1.0);
-
-    setBattleState(prev => ({
-      ...prev,
-      activeUserCard: targetCard
-    }));
-
-    setBattleLogs(prev => [
-      ...prev,
-      wasReplacementDueToFaint 
-        ? `¡Adelante, ${targetCard.name}! Entra al terreno de combate.`
-        : `Regresa ${previousCard.name}. ¡Adelante, ${targetCard.name}!`
-    ]);
-
-    setTimeout(() => {
-      setActiveMenuTab('attack');
-      
-      // Si fue relevo porque el anterior se debilitó, el nuevo Pokémon toma el turno directamente
-      if (wasReplacementDueToFaint) {
-        setTurn('player');
-        setActionLoading(false);
-      } else {
-        // Si fue cambio voluntario a mitad del turno, el rival ejecuta su turno contra el nuevo Pokémon
-        setTurn('opp');
-        setTimeout(() => {
-          executeOpponentTurn(opponentHpRef.current, targetCard);
-        }, 700);
       }
-    }, 600);
-  };
-
-  // FINALIZAR COMBATE
-  const finishBattle = async (result, finalHp) => {
-    setIsGameOver(true);
-    setBattleResult(result);
-
-    try {
-      const activeCard = activeCardRef.current || battleState.activeUserCard;
-      const res = await apiRequest('/battles/finish', 'POST', {
-        battleType,
-        opponentName,
-        result,
-        activeUserCardId: activeCard.user_card_id,
-        finalUserHp: finalHp
-      });
-
-      setRewardInfo(res);
-      if (result === 'victoria') {
-        confetti({ particleCount: 160, spread: 90, origin: { y: 0.6 } });
-      }
-      await refreshUser();
-      if (onBattleFinished) onBattleFinished();
     } catch (err) {
-      console.error('Error al registrar combate:', err);
+      showAlert.error('Jugada no válida', err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading || !battleState) {
+  const handleCancelPending = async () => {
+    if (!battle) return;
+    try {
+      await apiRequest(`/battles/live/${battle.id}/cancel`, 'POST');
+      onClose();
+    } catch (err) {
+      onClose();
+    }
+  };
+
+  const handleForfeit = async () => {
+    const confirmed = await showAlert.confirm(
+      '¿Rendirse?',
+      'Si te rindes ahora, la victoria será otorgada a tu rival.',
+      'Sí, rendirme',
+      'Seguir luchando'
+    );
+    if (confirmed) {
+      sendAction({ actionType: 'forfeit' });
+    }
+  };
+
+  if (loading || !battle) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d16]/95 backdrop-blur-md">
-        <div className="text-center text-slate-100 space-y-4">
-          <div className="w-12 h-12 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto shadow-lg shadow-cyan-500/30"></div>
-          <div>
-            <h3 className="text-sm font-black tracking-widest uppercase text-cyan-400">Estadio Pokémon</h3>
-            <p className="text-xs text-slate-400 mt-1">Cargando escenario y estadísticas de combate...</p>
-          </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
+        <div className="text-center space-y-3 p-8 bg-[#0b1222] rounded-3xl border border-slate-800 shadow-2xl">
+          <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-200 font-bold text-sm">Conectando al estadio...</p>
         </div>
       </div>
     );
   }
 
-  const { activeUserCard, opponent, userTeam, items } = battleState;
-  const availableMoves = get4MovesForCard(activeUserCard);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#050811]/90 backdrop-blur-md animate-fade-in select-none">
-      
-      {/* ARENA CONTAINER (Locked responsive viewport, no scrollbar overflow) */}
-      <div className={`bg-gradient-to-b from-[#0d1527] via-[#090e1c] to-[#060913] text-slate-100 rounded-3xl w-full max-w-5xl h-[94vh] max-h-[860px] border border-slate-800 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col justify-between relative ${screenShake ? 'animate-screen-shake' : ''}`}>
-
-        {/* ======================================================== */}
-        {/* 1. TOP HEADER - ELEGANT NAVIGATION & STATUS BAR */}
-        {/* ======================================================== */}
-        <div className="bg-[#0b1222]/90 backdrop-blur-md px-5 py-2.5 flex items-center justify-between border-b border-slate-800/80 z-20">
-          <div className="flex items-center space-x-3">
-            <span className={`w-2.5 h-2.5 rounded-full ${battleType === 'normal' ? 'bg-red-500' : 'bg-emerald-400'}`}></span>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">
-                  {battleType === 'normal' ? 'Combate Oficial' : 'Sparring Amistoso'}
-                </span>
-                <span className="text-xs font-semibold text-slate-400">vs <strong className="text-slate-100">{opponentName}</strong></span>
-              </div>
-            </div>
+  // Pantalla de espera mientras el rival acepta o rechaza el reto
+  if (battle.status === 'pending') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-8 max-w-md w-full text-center space-y-5 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 flex items-center justify-center mx-auto">
+            <Loader2 size={32} className="text-cyan-400 animate-spin" />
           </div>
 
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            {/* Audio Toggle */}
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-cyan-400 bg-cyan-950/70 px-3 py-1 rounded-full border border-cyan-500/30">
+              {battle.battleType === 'amistoso' ? 'Combate Amistoso · Nv. 5' : 'Combate Competitivo'}
+            </span>
+            <h2 className="text-xl font-black text-slate-100 mt-3">
+              Esperando a {battle.opponentName}
+            </h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              Le hemos enviado tu reto de combate. La arena se abrirá en cuanto acepte el desafío.
+            </p>
+          </div>
+
+          <button
+            onClick={handleCancelPending}
+            className="w-full py-2.5 bg-slate-900 hover:bg-rose-950/70 text-slate-300 hover:text-rose-300 border border-slate-800 hover:border-rose-500/40 font-bold text-xs rounded-xl transition-all"
+          >
+            Cancelar Reto
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const activeUserCard = battle.myTeam?.[battle.myActiveIdx] || battle.myTeam?.[0];
+  const opponentCard = battle.oppTeam?.[battle.oppActiveIdx] || battle.oppTeam?.[0];
+
+  if (!activeUserCard || !opponentCard) {
+    return null;
+  }
+
+  const availableMoves = activeUserCard.moves || [];
+  const isMyTurn = battle.isMyTurn;
+  const mustSwitch = battle.mustISwitch;
+  const energy = battle.myEnergy || 0;
+  const isGameOver = battle.status === 'finished';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md select-none text-slate-100">
+      <div className={`w-full max-w-5xl bg-[#070b14] rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[95vh] relative transition-transform ${screenShake ? 'animate-shake' : ''}`}>
+        
+        {/* 1. HUD HEADER */}
+        <div className="bg-[#0b1120] px-4 sm:px-6 py-3 border-b border-slate-800/80 flex items-center justify-between z-20">
+          <div className="flex items-center space-x-3">
+            <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-slate-800 text-cyan-400 border border-cyan-500/30">
+              {battle.battleType === 'amistoso' ? 'Combate Amistoso · Nv. 5' : 'Combate Competitivo'}
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-slate-200">
+              vs {battle.opponentName}
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               onClick={toggleSound}
               className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 soundOn ? 'bg-slate-900 border-cyan-500/40 text-cyan-400' : 'bg-slate-900 border-slate-800 text-slate-500'
               }`}
-              title={soundOn ? 'Desactivar audio' : 'Activar audio'}
             >
               {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
               <span className="hidden sm:inline text-[11px]">{soundOn ? 'Audio ON' : 'Silencio'}</span>
             </button>
 
-            {/* Turn Counter */}
             <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-400 bg-amber-950/40 px-3 py-1 rounded-full border border-amber-500/20">
               <Clock size={13} />
-              <span>Turno {turnNumber}</span>
+              <span>Turno {battle.turnNumber}</span>
             </div>
 
-            {/* Close Button */}
+            {!isGameOver && (
+              <button
+                onClick={handleForfeit}
+                className="p-1.5 text-rose-400 hover:bg-rose-950/60 border border-rose-500/30 rounded-xl transition-colors"
+                title="Rendirse"
+              >
+                <Flag size={16} />
+              </button>
+            )}
+
             <button 
               onClick={onClose}
               className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl transition-colors"
-              title="Salir del combate"
+              title="Minimizar combate"
             >
               <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* ======================================================== */}
-        {/* 2. 3D BATTLE ARENA VIEWPORT */}
-        {/* ======================================================== */}
+        {/* 2. 3D ARENA */}
         <div className="flex-1 relative overflow-hidden flex flex-col justify-between p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900/60 via-[#0a0f1d] to-[#060913]">
-          
-          {/* Subtle Geometric Field Lines */}
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(to_right,#38bdf8_1px,transparent_1px),linear-gradient(to_bottom,#38bdf8_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div>
 
-          {/* TURN INDICATOR FLOATING BANNER */}
+          {/* TURN BANNER */}
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none text-center">
-            {mustSwitchCard ? (
-              <div className="bg-red-950/80 backdrop-blur-md border border-red-500/50 text-red-200 px-4 py-1 rounded-full text-xs font-bold tracking-wide shadow-lg animate-pulse flex items-center space-x-1.5">
+            {mustSwitch ? (
+              <div className="bg-red-950/85 backdrop-blur-md border border-red-500/50 text-red-200 px-4 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse flex items-center space-x-1.5">
                 <AlertCircle size={14} className="text-red-400" />
-                <span>Pokémon debilitado. Selecciona un compañero abajo para continuar.</span>
+                <span>Tu Pokémon cayó. Selecciona un compañero abajo para continuar.</span>
               </div>
-            ) : turn === 'player' ? (
-              <div className="bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 text-cyan-300 px-4 py-1 rounded-full text-xs font-bold tracking-wide shadow-lg flex items-center space-x-1.5">
+            ) : isMyTurn ? (
+              <div className="bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 text-cyan-300 px-4 py-1 rounded-full text-xs font-bold shadow-lg flex items-center space-x-1.5">
                 <Sparkles size={13} className="text-cyan-400" />
-                <span>Tu turno: Selecciona una acción</span>
+                <span>Tu turno: elige tu jugada</span>
               </div>
             ) : (
-              <div className="bg-slate-900/90 backdrop-blur-md border border-amber-500/40 text-amber-300 px-4 py-1 rounded-full text-xs font-bold tracking-wide shadow-lg flex items-center space-x-1.5">
-                <Clock size={13} className="text-amber-400 animate-spin" />
-                <span>Turno del rival...</span>
+              <div className="bg-slate-900/90 backdrop-blur-md border border-amber-500/40 text-amber-300 px-4 py-1 rounded-full text-xs font-bold shadow-lg flex items-center space-x-1.5">
+                <Loader2 size={13} className="text-amber-400 animate-spin" />
+                <span>Esperando jugada de {battle.opponentName}...</span>
               </div>
             )}
-            {playerShieldActive && (
+            {battle.myShield && (
               <span className="block mt-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                 Escudo Activo (-75% daño rival)
               </span>
             )}
           </div>
 
-          {/* Charged Attack Concentric Ring FX */}
+          {/* FX OVERLAYS */}
           {chargedCircleFX && (
             <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
               <div className="w-52 h-52 rounded-full border-2 border-amber-400 animate-charged-ring flex items-center justify-center">
                 <div className="w-36 h-36 rounded-full border border-yellow-300 animate-ping"></div>
               </div>
               <div className="absolute text-center">
-                <span className="text-xl font-black text-amber-300 tracking-wider">
-                  ATAQUE CARGADO
-                </span>
-                <span className="block text-[10px] font-semibold text-slate-300 tracking-widest uppercase">Potencia Máxima</span>
+                <span className="text-xl font-black text-amber-300 tracking-wider">ATAQUE CARGADO</span>
               </div>
             </div>
           )}
 
-          {/* Elemental Animations Overlay */}
           {activeAnimation && (
             <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
               {activeAnimation === 'fire' && (
                 <div className="w-full h-full bg-red-600/20 animate-pulse flex items-center justify-center">
-                  <Flame size={130} className="text-red-500 animate-bounce drop-shadow-[0_0_35px_rgba(239,68,68,0.8)]" />
+                  <Flame size={130} className="text-red-500 animate-bounce" />
                 </div>
               )}
               {activeAnimation === 'water' && (
                 <div className="w-full h-full bg-blue-600/20 animate-pulse flex items-center justify-center">
-                  <Droplets size={130} className="text-blue-400 animate-bounce drop-shadow-[0_0_35px_rgba(59,130,246,0.8)]" />
+                  <Droplets size={130} className="text-blue-400 animate-bounce" />
                 </div>
               )}
               {activeAnimation === 'electric' && (
                 <div className="w-full h-full bg-amber-400/20 animate-ping flex items-center justify-center">
-                  <Zap size={140} className="text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,0.9)]" />
+                  <Zap size={140} className="text-amber-400" />
                 </div>
               )}
               {activeAnimation === 'grass' && (
                 <div className="w-full h-full bg-emerald-600/20 flex items-center justify-center">
-                  <Leaf size={130} className="text-emerald-400 animate-spin drop-shadow-[0_0_35px_rgba(16,185,129,0.8)]" />
+                  <Leaf size={130} className="text-emerald-400 animate-spin" />
                 </div>
               )}
               {activeAnimation === 'buff' && (
@@ -807,89 +425,97 @@ export default function BattleArenaModal({
               )}
               {activeAnimation === 'normal' && (
                 <div className="w-full h-full bg-white/15 animate-ping flex items-center justify-center">
-                  <Sword size={120} className="text-white drop-shadow-xl" />
+                  <Sword size={120} className="text-white" />
                 </div>
               )}
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* OPPONENT ARENA HALF (TOP-RIGHT 3D DAIS) */}
-          {/* ======================================================== */}
+          {/* OPPONENT HALF */}
           <div className="flex justify-end items-start w-full relative z-10 pr-2 sm:pr-8">
             <div className="flex flex-col-reverse sm:flex-row items-center sm:space-x-5">
               
-              {/* Opponent Info Plaque */}
               <div className="bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-800 shadow-xl w-60 sm:w-64 relative mt-2 sm:mt-0">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-100 mb-1">
-                  <span className="tracking-wide uppercase">{opponent.name}</span>
+                  <span className="tracking-wide uppercase">{opponentCard.name}</span>
                   <span className="text-[10px] font-bold text-red-400 bg-red-950/60 px-2 py-0.5 rounded-full border border-red-500/20">
-                    Nv. {opponent.level}
+                    Nv. {opponentCard.level}
                   </span>
                 </div>
 
-                {/* HP Bar */}
+                {/* Team alive indicators */}
+                <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
+                  <span>{battle.opponentName}</span>
+                  <div className="flex space-x-1">
+                    {battle.oppTeam.map((c, idx) => (
+                      <span
+                        key={idx}
+                        className={`w-2.5 h-2.5 rounded-full border ${
+                          c.current_hp > 0 ? 'bg-rose-500 border-rose-300' : 'bg-slate-800 border-slate-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1">
                   <span className="font-bold text-red-400">HP</span>
-                  <span>{opponent.currentHp} / {opponent.maxHp}</span>
+                  <span>{opponentCard.current_hp} / {opponentCard.max_hp}</span>
                 </div>
                 <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
-                      opponent.currentHp > opponent.maxHp * 0.5 ? 'bg-emerald-500' :
-                      opponent.currentHp > opponent.maxHp * 0.2 ? 'bg-amber-500' : 'bg-red-500'
+                      opponentCard.current_hp > opponentCard.max_hp * 0.5 ? 'bg-emerald-500' :
+                      opponentCard.current_hp > opponentCard.max_hp * 0.2 ? 'bg-amber-500' : 'bg-red-500'
                     }`}
-                    style={{ width: `${Math.max(0, (opponent.currentHp / opponent.maxHp) * 100)}%` }}
+                    style={{ width: `${Math.max(0, (opponentCard.current_hp / opponentCard.max_hp) * 100)}%` }}
                   ></div>
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-2 pt-1 border-t border-slate-800">
-                  <span>ATQ {opponent.atk || 45}</span>
-                  <span>DEF {opponent.def || 40}</span>
-                  <span>SPD {opponent.spd || 45}</span>
+                  <span>ATQ {opponentCard.atk}</span>
+                  <span>DEF {opponentCard.def}</span>
+                  <span>SPD {opponentCard.spd}</span>
                 </div>
 
-                {/* Floating Damage on Opponent */}
                 {floatingDamage && floatingDamage.target === 'opp' && (
-                  <div className="absolute -top-10 left-4 animate-float-damage bg-slate-900/95 text-red-400 border border-red-500/50 font-black text-sm px-3 py-1 rounded-xl shadow-xl z-30 pointer-events-none">
+                  <div className={`absolute -top-10 left-4 animate-float-damage bg-slate-900/95 font-black text-sm px-3 py-1 rounded-xl shadow-xl z-30 pointer-events-none ${
+                    floatingDamage.isHeal ? 'text-emerald-400 border border-emerald-500/50' : 'text-red-400 border border-red-500/50'
+                  }`}>
                     {floatingDamage.text}
-                    {floatingDamage.extra && (
-                      <span className="block text-[9px] font-bold text-amber-300">{floatingDamage.extra}</span>
-                    )}
+                    {floatingDamage.extra && <span className="block text-[9px] font-bold text-amber-300">{floatingDamage.extra}</span>}
                   </div>
                 )}
               </div>
 
-              {/* Opponent 3D Battle Dais & Animated Sprite */}
               <div className="relative flex flex-col items-center">
                 <div className="h-32 sm:h-40 w-32 sm:w-40 flex items-center justify-center relative">
                   <img 
-                    src={opponent.animated_front_url || opponent.artwork_url} 
-                    alt={opponent.name}
+                    src={opponentCard.animated_front_url || opponentCard.artwork_url} 
+                    alt={opponentCard.name}
                     className={`max-h-32 sm:max-h-36 object-contain filter drop-shadow-[0_12px_12px_rgba(0,0,0,0.8)] transition-all duration-300 ${
                       attackerAction === 'opp' ? 'animate-opp-lunge' : ''
                     } ${
                       hitTarget === 'opp' ? 'brightness-150 contrast-200 hue-rotate-180 animate-pulse' : ''
                     } ${
-                      opponent.currentHp === 0 ? 'grayscale rotate-90 opacity-30' : ''
+                      opponentCard.current_hp === 0 ? 'grayscale rotate-90 opacity-30' : ''
                     }`}
-                    onError={(e) => { e.target.src = opponent.artwork_url; }}
+                    onError={(e) => { e.target.src = opponentCard.artwork_url; }}
                   />
+                  {battle.oppShield && (
+                    <div className="absolute inset-0 border-3 border-red-400 rounded-full animate-shield-pulse pointer-events-none"></div>
+                  )}
                 </div>
-                {/* 3D Platform Ring */}
                 <div className="w-32 sm:w-44 h-7 rounded-[100%] bg-gradient-to-r from-red-500/10 via-red-500/30 to-red-500/10 border border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.3)] -mt-3"></div>
               </div>
 
             </div>
           </div>
 
-          {/* ======================================================== */}
-          {/* PLAYER ARENA HALF (BOTTOM-LEFT 3D DAIS) */}
-          {/* ======================================================== */}
+          {/* PLAYER HALF */}
           <div className="flex justify-start items-end w-full relative z-10 pl-2 sm:pl-8">
             <div className="flex flex-col sm:flex-row items-center sm:space-x-5">
               
-              {/* Player 3D Battle Dais & Animated Back Sprite */}
               <div className="relative flex flex-col items-center">
                 <div className="h-32 sm:h-40 w-32 sm:w-40 flex items-center justify-center relative">
                   <img 
@@ -904,15 +530,13 @@ export default function BattleArenaModal({
                     }`}
                     onError={(e) => { e.target.src = activeUserCard.artwork_url; }}
                   />
-                  {playerShieldActive && (
+                  {battle.myShield && (
                     <div className="absolute inset-0 border-3 border-cyan-400 rounded-full animate-shield-pulse pointer-events-none"></div>
                   )}
                 </div>
-                {/* 3D Platform Ring */}
                 <div className="w-32 sm:w-44 h-7 rounded-[100%] bg-gradient-to-r from-cyan-500/10 via-cyan-500/30 to-cyan-500/10 border border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.3)] -mt-3"></div>
               </div>
 
-              {/* Player Info Plaque */}
               <div className="bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-800 shadow-xl w-60 sm:w-68 relative mt-2 sm:mt-0">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-100 mb-1">
                   <span className="tracking-wide uppercase">{activeUserCard.name}</span>
@@ -926,7 +550,6 @@ export default function BattleArenaModal({
                   </div>
                 </div>
 
-                {/* HP Bar */}
                 <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1">
                   <span className="font-bold text-cyan-400">HP</span>
                   <span>{activeUserCard.current_hp} / {activeUserCard.max_hp}</span>
@@ -941,38 +564,30 @@ export default function BattleArenaModal({
                   ></div>
                 </div>
 
-                {/* Energy Gauge */}
                 <div className="mt-2 pt-2 border-t border-slate-800">
                   <div className="flex items-center justify-between text-[10px] font-bold text-slate-300 mb-0.5">
                     <span className="flex items-center space-x-1">
                       <Zap size={11} className="fill-amber-400 text-amber-400" />
-                      <span>Energía de Ataque</span>
+                      <span>Energía</span>
                     </span>
                     <span className="font-mono text-amber-400">{energy}%</span>
                   </div>
                   <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
                     <div 
                       className={`h-full rounded-full transition-all duration-300 ${
-                        energy >= 45 
-                          ? 'bg-gradient-to-r from-amber-400 to-orange-500' 
-                          : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                        energy >= 45 ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'
                       }`}
                       style={{ width: `${energy}%` }}
                     ></div>
                   </div>
                 </div>
 
-                {/* Floating Damage on Player */}
                 {floatingDamage && floatingDamage.target === 'player' && (
                   <div className={`absolute -top-10 right-4 animate-float-damage bg-slate-900/95 font-black text-sm px-3 py-1 rounded-xl shadow-xl z-30 pointer-events-none ${
-                    floatingDamage.isHeal 
-                      ? 'text-emerald-400 border border-emerald-500/50' 
-                      : 'text-red-400 border border-red-500/50'
+                    floatingDamage.isHeal ? 'text-emerald-400 border border-emerald-500/50' : 'text-red-400 border border-red-500/50'
                   }`}>
                     {floatingDamage.text}
-                    {floatingDamage.extra && (
-                      <span className="block text-[9px] font-bold text-amber-300">{floatingDamage.extra}</span>
-                    )}
+                    {floatingDamage.extra && <span className="block text-[9px] font-bold text-amber-300">{floatingDamage.extra}</span>}
                   </div>
                 )}
               </div>
@@ -982,16 +597,12 @@ export default function BattleArenaModal({
 
         </div>
 
-        {/* ======================================================== */}
-        {/* 3. AAA ACTION CONSOLE DECK (DOCKED AT BOTTOM, NO EMOJIS) */}
-        {/* ======================================================== */}
+        {/* 3. CONSOLE DECK */}
         <div className="bg-[#080d1a] border-t border-slate-800 p-3 sm:p-4 z-20">
-          
-          {/* Main 4 Action Mode Tabs */}
           <div className="grid grid-cols-4 gap-2 mb-3">
             <button
               onClick={() => { setActiveMenuTab('attack'); battleAudio.playButton(); }}
-              disabled={mustSwitchCard}
+              disabled={mustSwitch}
               className={`min-h-[44px] py-2 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 transition-all ${
                 activeMenuTab === 'attack'
                   ? 'bg-slate-800 text-cyan-400 border border-cyan-500/50 shadow-md'
@@ -1004,7 +615,7 @@ export default function BattleArenaModal({
 
             <button
               onClick={() => { setActiveMenuTab('shield'); battleAudio.playButton(); }}
-              disabled={mustSwitchCard}
+              disabled={mustSwitch}
               className={`min-h-[44px] py-2 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 transition-all ${
                 activeMenuTab === 'shield'
                   ? 'bg-slate-800 text-cyan-400 border border-cyan-500/50 shadow-md'
@@ -1017,7 +628,7 @@ export default function BattleArenaModal({
 
             <button
               onClick={() => { setActiveMenuTab('bag'); battleAudio.playButton(); }}
-              disabled={mustSwitchCard}
+              disabled={mustSwitch}
               className={`min-h-[44px] py-2 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 transition-all ${
                 activeMenuTab === 'bag'
                   ? 'bg-slate-800 text-cyan-400 border border-cyan-500/50 shadow-md'
@@ -1033,19 +644,16 @@ export default function BattleArenaModal({
               className={`min-h-[44px] py-2 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 transition-all ${
                 activeMenuTab === 'switch'
                   ? 'bg-slate-800 text-purple-400 border border-purple-500/50 shadow-md'
-                  : mustSwitchCard
+                  : mustSwitch
                     ? 'bg-red-950/80 text-red-300 border border-red-500/60 animate-pulse'
                     : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 border border-slate-800'
               }`}
             >
               <ArrowLeftRight size={15} />
-              <span>RELEVO ({userTeam?.filter(c => c.current_hp > 0).length || 1}/3)</span>
+              <span>RELEVO ({battle.myTeam.filter(c => c.current_hp > 0).length}/{battle.myTeam.length})</span>
             </button>
           </div>
 
-          {/* ======================================================== */}
-          {/* TAB 1: 4-MOVE ATTACK DECK */}
-          {/* ======================================================== */}
           {activeMenuTab === 'attack' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
               {availableMoves.map((move, midx) => {
@@ -1053,21 +661,21 @@ export default function BattleArenaModal({
                 const IconComponent = typeStyle.icon;
                 const isCharged = move.category === 'charged';
                 const hasChargedEnergy = energy >= (move.energyCost || 45);
-                const isMoveDisabled = actionLoading || turn !== 'player' || (isCharged && !hasChargedEnergy) || activeUserCard.current_hp === 0 || mustSwitchCard;
+                const isMoveDisabled = actionLoading || !isMyTurn || (isCharged && !hasChargedEnergy) || activeUserCard.current_hp === 0 || mustSwitch;
 
-                const effectiveness = getEffectivenessMultiplier(move.type, opponent.types || []);
+                const effectiveness = getEffectivenessMultiplier(move.type, opponentCard.types || []);
                 const effectLabel = getEffectivenessLabel(effectiveness);
 
                 return (
                   <button
                     key={midx}
-                    onClick={() => handlePlayerAttack(move)}
+                    onClick={() => sendAction({ actionType: 'attack', moveIndex: midx })}
                     disabled={isMoveDisabled}
                     className={`min-h-[58px] p-3 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-                      isCharged && hasChargedEnergy
+                      isCharged && hasChargedEnergy && isMyTurn
                         ? 'bg-slate-900 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] hover:scale-[1.02]'
                         : isMoveDisabled
-                          ? 'bg-slate-950/60 border-slate-800 text-slate-600 opacity-60 cursor-not-allowed'
+                          ? 'bg-slate-950/60 border-slate-800 text-slate-600 opacity-50 cursor-not-allowed'
                           : 'bg-slate-900 hover:bg-slate-850 border-slate-750 hover:border-cyan-500/60 hover:scale-[1.01] shadow-sm'
                     }`}
                   >
@@ -1079,12 +687,12 @@ export default function BattleArenaModal({
                       <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">
                         {isCharged ? (
                           <span className={hasChargedEnergy ? 'text-amber-400' : 'text-slate-500'}>
-                            {energy}/{move.energyCost || 45} Energía
+                            {energy}/{move.energyCost || 45} ⚡
                           </span>
                         ) : move.category === 'tactical' ? (
                           <span className="text-pink-400">CRIT +40%</span>
                         ) : move.category === 'buff' ? (
-                          <span className="text-cyan-400">+DEF / +25⚡</span>
+                          <span className="text-cyan-400">+ATQ / +25⚡</span>
                         ) : (
                           <span className="text-emerald-400">+{move.energyGen || 18}⚡</span>
                         )}
@@ -1096,9 +704,6 @@ export default function BattleArenaModal({
                         <span>{move.name}</span>
                         {isCharged && hasChargedEnergy && <Sparkles size={12} className="text-amber-400" />}
                       </h4>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                        {move.description}
-                      </p>
                     </div>
 
                     <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 w-full mt-1">
@@ -1117,9 +722,6 @@ export default function BattleArenaModal({
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* TAB 2: DEFENDER / ESQUIVAR */}
-          {/* ======================================================== */}
           {activeMenuTab === 'shield' && (
             <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center space-x-3">
@@ -1127,193 +729,133 @@ export default function BattleArenaModal({
                   <Shield size={22} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-100">Postura Defensiva y Esquiva Táctica</h4>
+                  <h4 className="text-xs font-bold text-slate-100">Escudo Protector</h4>
                   <p className="text-[11px] text-slate-400">
-                    Reduce el daño del próximo golpe en un <strong className="text-cyan-400">75%</strong> y canaliza <strong className="text-amber-400">+25 de Energía</strong>.
+                    Reduce el próximo golpe recibido en un <strong className="text-cyan-400">75%</strong>. Consume tu turno.
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={handleActivateShield}
-                disabled={actionLoading || turn !== 'player' || playerShieldActive || mustSwitchCard}
-                className="w-full sm:w-auto px-6 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-cyan-300 border border-cyan-500/50 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5"
+                onClick={() => sendAction({ actionType: 'shield' })}
+                disabled={actionLoading || !isMyTurn || battle.myShield || mustSwitch}
+                className="w-full sm:w-auto px-6 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-cyan-300 border border-cyan-500/50 font-bold text-xs rounded-xl shadow-md transition-all"
               >
-                <Shield size={14} />
-                <span>{playerShieldActive ? 'Escudo ya activo' : 'Activar Escudo'}</span>
+                {battle.myShield ? 'Escudo Activo' : 'Activar Escudo'}
               </button>
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* TAB 3: MOCHILA DE ITEMS */}
-          {/* ======================================================== */}
           {activeMenuTab === 'bag' && (
             <div className="bg-slate-900/90 rounded-2xl p-3 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-xs">
-                <span className="font-bold text-slate-200">Objetos y Pociones</span>
-                <span className="text-[10px] text-amber-400 font-mono">* Usar una poción consume tu turno de combate</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Poción de Campo (+50 HP) */}
-                <div className="p-2.5 rounded-xl bg-slate-950 border border-emerald-500/40 flex items-center justify-between shadow-md">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
-                      <Heart size={15} className="fill-emerald-400" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-100 block">Poción de Campo (+50 HP)</span>
-                      <span className="text-[10px] text-emerald-400 font-mono">Curación de emergencia</span>
-                    </div>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-emerald-500/40 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                    <Heart size={15} className="fill-emerald-400" />
                   </div>
-
-                  <button
-                    onClick={handleUseFieldPotion}
-                    disabled={actionLoading || turn !== 'player' || mustSwitchCard || activeUserCard.current_hp >= activeUserCard.max_hp}
-                    className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-black text-[11px] rounded-lg transition-all shadow-sm uppercase tracking-wide"
-                  >
-                    {activeUserCard.current_hp >= activeUserCard.max_hp ? 'HP Lleno' : 'Curar'}
-                  </button>
+                  <div>
+                    <span className="text-xs font-bold text-slate-100 block">Poción de Campo (+50 HP)</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">Consume tu turno al usarla</span>
+                  </div>
                 </div>
 
-                {/* Items del inventario */}
-                {items?.map((item) => (
-                  <div 
-                    key={item.item_key}
-                    className="p-2.5 rounded-xl bg-slate-950 border border-slate-850 flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="text-xs font-bold text-slate-200 block">{item.name}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">x{item.quantity}</span>
-                    </div>
-
-                    <button
-                      onClick={() => handleUseItemInBattle(item.item_key)}
-                      disabled={actionLoading || turn !== 'player' || item.quantity <= 0 || mustSwitchCard}
-                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-cyan-300 border border-cyan-500/30 font-bold text-[11px] rounded-lg transition-all"
-                    >
-                      Usar
-                    </button>
-                  </div>
-                ))}
+                <button
+                  onClick={() => sendAction({ actionType: 'heal' })}
+                  disabled={actionLoading || !isMyTurn || mustSwitch || activeUserCard.current_hp >= activeUserCard.max_hp}
+                  className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-black text-[11px] rounded-lg uppercase"
+                >
+                  {activeUserCard.current_hp >= activeUserCard.max_hp ? 'HP Lleno' : 'Curar'}
+                </button>
               </div>
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* TAB 4: RELEVAR / CAMBIAR POKÉMON DEL EQUIPO (3 POKÉMON) */}
-          {/* ======================================================== */}
           {activeMenuTab === 'switch' && (
-            <div className="bg-slate-900/90 rounded-2xl p-3 border border-slate-800 space-y-2">
-              {mustSwitchCard && (
-                <div className="bg-amber-950/60 border border-amber-500/40 p-2 rounded-xl text-center">
-                  <span className="text-xs font-bold text-amber-300">
-                    Tu Pokémon activo ha caído. Haz clic en un compañero con vida para enviarlo al combate:
-                  </span>
-                </div>
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {battle.myTeam.map((card, idx) => {
+                const isActive = idx === battle.myActiveIdx;
+                const isFainted = card.current_hp <= 0;
+                const canClick = !isActive && !isFainted && isMyTurn && !actionLoading;
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {userTeam?.map((card) => {
-                  const isActive = card.user_card_id === activeUserCard.user_card_id;
-                  const isFainted = card.current_hp <= 0;
-
-                  return (
-                    <div
-                      key={card.user_card_id}
-                      onClick={() => !isActive && !isFainted && handleSwitchPokemon(card)}
-                      className={`min-h-[58px] p-2.5 rounded-xl border flex items-center justify-between transition-all ${
-                        isActive
-                          ? 'bg-slate-950 border-cyan-500/60 ring-1 ring-cyan-500/30 cursor-default'
-                          : isFainted
-                            ? 'bg-slate-950/40 border-slate-850 opacity-50 cursor-not-allowed'
-                            : 'bg-slate-950 hover:bg-slate-850 border-slate-800 cursor-pointer hover:border-purple-500/50 hover:scale-[1.01]'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2.5">
-                        <img src={card.sprite_url} alt={card.name} className="w-8 h-8 object-contain" />
-                        <div>
-                          <span className="text-xs font-bold text-slate-100 block">{card.name}</span>
-                          <span className={`text-[10px] font-semibold ${
-                            isActive ? 'text-cyan-400 font-bold' : isFainted ? 'text-red-400' : 'text-emerald-400'
-                          }`}>
-                            {isActive ? 'Activo en combate' : isFainted ? 'Debilitado' : 'Disponible'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-[10px] font-mono text-slate-400 font-bold block">
-                          {card.current_hp} / {card.max_hp} HP
+                return (
+                  <div
+                    key={card.user_card_id || idx}
+                    onClick={() => canClick && sendAction({ actionType: 'switch', switchIndex: idx })}
+                    className={`min-h-[58px] p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                      isActive
+                        ? 'bg-slate-950 border-cyan-500/60 ring-1 ring-cyan-500/30'
+                        : isFainted
+                          ? 'bg-slate-950/40 border-slate-850 opacity-50 cursor-not-allowed'
+                          : canClick
+                            ? 'bg-slate-950 hover:bg-slate-850 border-slate-800 cursor-pointer hover:border-purple-500/50'
+                            : 'bg-slate-950/60 border-slate-850 opacity-70 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <img src={card.sprite_url} alt={card.name} className="w-8 h-8 object-contain" />
+                      <div>
+                        <span className="text-xs font-bold text-slate-100 block">{card.name}</span>
+                        <span className={`text-[10px] font-semibold ${
+                          isActive ? 'text-cyan-400' : isFainted ? 'text-red-400' : 'text-emerald-400'
+                        }`}>
+                          {isActive ? 'En combate' : isFainted ? 'Debilitado' : `Nv. ${card.level}`}
                         </span>
-                        {!isActive && !isFainted && (
-                          <span className="text-[10px] text-purple-400 font-bold flex items-center justify-end space-x-0.5">
-                            <span>Relevar</span>
-                            <ChevronRight size={11} />
-                          </span>
-                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-mono text-slate-400 font-bold block">
+                        {card.current_hp} / {card.max_hp} HP
+                      </span>
+                      {canClick && (
+                        <span className="text-[10px] text-purple-400 font-bold flex items-center justify-end">
+                          <span>Enviar</span>
+                          <ChevronRight size={11} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Realtime Action Ticker Log */}
           <div className="mt-2 bg-[#050811] rounded-xl px-3 py-1.5 border border-slate-850 text-[11px] font-mono text-slate-400 flex items-center justify-between">
             <span className="truncate">
-              {battleLogs[battleLogs.length - 1] || 'Combate en progreso...'}
-            </span>
-            <span className="text-[10px] text-slate-600 font-bold ml-2 shrink-0">
-              Registro ({battleLogs.length})
+              {battle.battleLogs?.[battle.battleLogs.length - 1] || 'Combate en progreso...'}
             </span>
           </div>
-
         </div>
-
       </div>
 
-      {/* ======================================================== */}
-      {/* 4. POST-BATTLE VICTORY / DEFEAT MODAL */}
-      {/* ======================================================== */}
+      {/* 4. END GAME MODAL */}
       {isGameOver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
           <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-6 sm:p-7 max-w-md w-full text-center space-y-4 shadow-2xl">
-            
-            <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center bg-slate-900 border border-slate-700 text-slate-100">
-              {battleResult === 'victoria' ? <Trophy size={28} className="text-amber-400" /> : <Skull size={28} className="text-red-400" />}
+            <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center bg-slate-900 border border-slate-700">
+              {battle.didIWin ? <Trophy size={28} className="text-amber-400" /> : <Skull size={28} className="text-red-400" />}
             </div>
 
             <div>
               <h2 className="text-xl font-black text-slate-100 uppercase tracking-wider">
-                {battleResult === 'victoria' ? 'Victoria' : 'Derrota'}
+                {battle.didIWin ? 'Victoria' : 'Derrota'}
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                {battleResult === 'victoria'
-                  ? `Has superado a ${opponentName} en el Estadio Pokémon.`
-                  : `${opponentName} ha superado a tu equipo en esta ocasión.`}
+                {battle.didIWin
+                  ? `Derrotaste a ${battle.opponentName}.`
+                  : `${battle.opponentName} ganó el combate.`}
               </p>
             </div>
 
-            {/* Recompensas */}
-            {rewardInfo && (
+            {battle.rewards && (
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-left space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">EXP Obtenida:</span>
-                  <span className="font-bold text-cyan-400">+{rewardInfo.expEarned || 120} EXP</span>
+                  <span className="font-bold text-cyan-400">+{battle.rewards.xpEarned} EXP</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">PokéMonedas:</span>
-                  <span className="font-bold text-amber-400">+{rewardInfo.coinsEarned || 75} P</span>
+                  <span className="font-bold text-amber-400">+{battle.rewards.coinsEarned} P</span>
                 </div>
-                {rewardInfo.itemReward && (
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                    <span className="text-slate-400">Objeto recibido:</span>
-                    <span className="font-bold text-emerald-400">{rewardInfo.itemReward.name}</span>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1321,12 +863,11 @@ export default function BattleArenaModal({
               onClick={onClose}
               className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 font-bold text-xs rounded-xl shadow-md transition-all"
             >
-              Regresar al Menú Principal
+              Regresar
             </button>
           </div>
         </div>
       )}
-
     </div>
   );
 }

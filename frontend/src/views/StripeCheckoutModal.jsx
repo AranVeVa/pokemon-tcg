@@ -65,6 +65,9 @@ export default function StripeCheckoutModal({ initialProductId = 'pass_premium',
       setSuccessMsg(confirmRes.message);
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
       await refreshUser();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1600);
     } catch (err) {
       showAlert.error('Error en el Pago', err.message);
     } finally {
@@ -98,9 +101,12 @@ export default function StripeCheckoutModal({ initialProductId = 'pass_premium',
             <p className="text-sm text-slate-300 max-w-md mx-auto">
               {successMsg}
             </p>
+            <p className="text-xs text-cyan-400 font-mono animate-pulse">
+              Actualizando tu cuenta e interfaz...
+            </p>
             <div className="pt-4">
               <button
-                onClick={onClose}
+                onClick={() => window.location.reload()}
                 className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20"
               >
                 Continuar Jugando

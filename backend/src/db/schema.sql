@@ -131,6 +131,35 @@ CREATE TABLE battles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE live_battles (
+  id SERIAL PRIMARY KEY,
+  challenger_id INT REFERENCES users(id) ON DELETE CASCADE,
+  opponent_id INT REFERENCES users(id) ON DELETE CASCADE,
+  battle_type VARCHAR(20) NOT NULL CHECK (battle_type IN ('amistoso', 'normal')),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'finished', 'rejected', 'cancelled')),
+  turn_user_id INT,
+  turn_number INT DEFAULT 1,
+  winner_id INT,
+  challenger_team JSONB NOT NULL,
+  opponent_team JSONB,
+  challenger_active_idx INT DEFAULT 0,
+  opponent_active_idx INT DEFAULT 0,
+  challenger_energy INT DEFAULT 20,
+  opponent_energy INT DEFAULT 20,
+  challenger_shield BOOLEAN DEFAULT FALSE,
+  opponent_shield BOOLEAN DEFAULT FALSE,
+  challenger_atk_buff NUMERIC(4,2) DEFAULT 1.0,
+  opponent_atk_buff NUMERIC(4,2) DEFAULT 1.0,
+  challenger_def_buff NUMERIC(4,2) DEFAULT 1.0,
+  opponent_def_buff NUMERIC(4,2) DEFAULT 1.0,
+  must_switch_user_id INT,
+  last_event JSONB,
+  rewards JSONB,
+  battle_logs JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE payments (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE SET NULL,

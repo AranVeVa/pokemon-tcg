@@ -68,8 +68,8 @@ export default function BattlePassView({ onOpenStripe }) {
   const { seasonName, userLevel, currentXp, xpForNextLevel, isPremium, rewards } = passData;
   const progressPercent = Math.min(100, (currentXp / xpForNextLevel) * 100);
 
-  // Filtramos un rango alrededor del nivel actual (e.g. del 14 al 24) o permitimos scroll
-  const visibleRewards = rewards.slice(Math.max(0, userLevel - 4), Math.min(50, userLevel + 8));
+  // Mostrar todos los 50 niveles del Pase de Batalla
+  const visibleRewards = rewards;
 
   return (
     <div className="space-y-8 pb-12 select-none text-slate-100">
@@ -145,11 +145,14 @@ export default function BattlePassView({ onOpenStripe }) {
           
           {/* Track 1: Pase Gratuito */}
           <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-7 h-7 rounded-lg bg-blue-950 text-cyan-400 border border-cyan-500/30 flex items-center justify-center">
-                <Gift size={15} />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-950 text-cyan-400 border border-cyan-500/30 flex items-center justify-center">
+                  <Gift size={15} />
+                </div>
+                <h3 className="text-xs font-black text-slate-200 uppercase tracking-wider">Pase Gratuito</h3>
               </div>
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-wider">Pase Gratuito</h3>
+              <span className="text-[10px] font-mono text-slate-400">Niveles 1 - {rewards.length} · Desliza →</span>
             </div>
 
             <div className="flex items-center space-x-3 overflow-x-auto pb-4 scrollbar-thin">
