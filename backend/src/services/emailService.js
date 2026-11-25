@@ -93,8 +93,7 @@ function buildEmailLayout({ accentColor, title, subtitle, username, intro, code,
         <hr style="border: none; border-top: 1px solid #1e293b; margin: 28px 0;" />
 
         <div style="text-align: center; font-size: 11px; color: #475569;">
-          <p style="margin: 0;">UVAQ — Programación Web 2026</p>
-          <p style="margin: 4px 0 0 0;">Pokémon TCG Web</p>
+          <p style="margin: 0;">Pokémon TCG · Cartas Coleccionables</p>
         </div>
       </div>
     </div>

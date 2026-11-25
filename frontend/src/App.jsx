@@ -11,6 +11,7 @@ import BattlePassView from './views/BattlePassView';
 import FriendsBattlesView from './views/FriendsBattlesView';
 import AdminPanel from './views/AdminPanel';
 import StripeCheckoutModal from './views/StripeCheckoutModal';
+import GlobalLiveNotifications from './components/GlobalLiveNotifications';
 import { trackPageView } from './utils/analytics';
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('sobres-tienda');
   const [shopSubTab, setShopSubTab] = useState('sobres');
   const [friendsSubTab, setFriendsSubTab] = useState('amigos');
+  const [globalSyncTick, setGlobalSyncTick] = useState(0);
   const [authModalMode, setAuthModalMode] = useState(null); // 'login' | 'register' | null
   const [showStripeModal, setShowStripeModal] = useState(false);
   const [upgradeSelectedPokemonId, setUpgradeSelectedPokemonId] = useState(7); // Squirtle por defecto
@@ -99,6 +101,8 @@ export default function App() {
 
           {user && !isPublicTab && (
             <>
+              <GlobalLiveNotifications onGlobalAction={() => setGlobalSyncTick(t => t + 1)} />
+
               {activeTab === 'sobres-tienda' && (
                 <PacksShopView
                   initialSubTab={shopSubTab}
@@ -128,6 +132,7 @@ export default function App() {
                 <FriendsBattlesView
                   initialSubTab={friendsSubTab}
                   onSubTabChange={setFriendsSubTab}
+                  refreshSignal={globalSyncTick}
                 />
               )}
 

@@ -295,7 +295,7 @@ export default function PokedexView({ onSelectPokemonForUpgrade }) {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            <span className="text-cyan-400 font-bold">{totalRegistered}</span> especies registradas en tu álbum · <span className="text-emerald-400 font-semibold">Repetidas (x2+)</span> listas para evolucionar o intercambiar.
+            <span className="text-cyan-400 font-bold">{totalRegistered}</span> especies registradas en tu álbum.
           </p>
         </div>
 

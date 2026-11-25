@@ -20,7 +20,7 @@ import BattleArenaModal from './BattleArenaModal';
 import TradesView from './TradesView';
 import TradeProposalModal from './TradeProposalModal';
 
-export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabChange }) {
+export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabChange, refreshSignal = 0 }) {
   const { user } = useAuth();
   const [subTab, setSubTab] = useState(initialSubTab); // 'amigos' | 'intercambios'
 
@@ -29,6 +29,13 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
       setSubTab(initialSubTab);
     }
   }, [initialSubTab]);
+
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      fetchFriendsAndTeam();
+      fetchPendingTradesCount();
+    }
+  }, [refreshSignal]);
 
   const changeSubTab = (next) => {
     setSubTab(next);
@@ -312,74 +319,9 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
         </div>
       </div>
 
-      {/* RETOS DE COMBATE ENTRANTES / EN CURSO */}
-      {(incomingChallenges.length > 0 || activeBattles.length > 0) && (
-        <section className="space-y-3">
-          {incomingChallenges.map((c) => (
-            <div 
-              key={c.id}
-              className="bg-gradient-to-r from-cyan-950/90 via-[#0b1222] to-slate-900 border-2 border-cyan-500/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-cyan-500/10"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 animate-pulse shrink-0">
-                  <Swords size={20} />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-sm font-black text-slate-100 truncate">
-                    ¡{c.challenger_name} te ha retado a combatir!
-                  </h4>
-                  <span className="text-xs text-cyan-300 font-semibold">
-                    {c.battle_type === 'amistoso' ? 'Combate Amistoso (Todos en Nv. 5)' : 'Combate Competitivo'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 shrink-0">
-                <button
-                  onClick={() => handleRejectChallenge(c.id)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-rose-950 text-slate-300 hover:text-rose-300 border border-slate-700 font-bold rounded-xl text-xs transition-all"
-                >
-                  Rechazar
-                </button>
-                <button
-                  onClick={() => handleAcceptChallenge(c.id)}
-                  className="px-5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-xl text-xs shadow-lg shadow-cyan-500/25 transition-all"
-                >
-                  Aceptar Reto
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {activeBattles.map((ab) => (
-            <div
-              key={ab.id}
-              className="bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            >
-              <div className="flex items-center space-x-3">
-                <Clock size={18} className="text-emerald-400 animate-spin shrink-0" />
-                <div>
-                  <h4 className="text-xs font-bold text-emerald-200">
-                    Combate en curso contra {ab.challenger_id === user?.id ? ab.opponent_name : ab.challenger_name}
-                  </h4>
-                  <span className="text-[11px] text-emerald-400/80">
-                    {ab.battle_type === 'amistoso' ? 'Combate Amistoso' : 'Combate Competitivo'}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => handleOpenActiveBattle(ab.id)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs shadow transition-all self-start sm:self-auto"
-              >
-                Entrar al Combate
-              </button>
-            </div>
-          ))}
-        </section>
-      )}
-
       {subTab === 'intercambios' ? (
         <TradesView
+          key={`trades-${refreshSignal}`}
           onTradesChanged={() => {
             fetchPendingTradesCount();
             fetchFriendsAndTeam();
@@ -520,49 +462,6 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
               })}
             </div>
           </section>
-
-          {/* SOLICITUDES DE AMISTAD PENDIENTES */}
-          {incomingFriendRequests.length > 0 && (
-            <section className="bg-[#0b1222] rounded-3xl p-4 sm:p-5 border border-amber-500/40 shadow-xl space-y-3">
-              <div className="flex items-center space-x-2">
-                <Bell size={16} className="text-amber-400" />
-                <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
-                  Solicitudes de Amistad ({incomingFriendRequests.length})
-                </h3>
-              </div>
-
-              <div className="space-y-2">
-                {incomingFriendRequests.map((req) => (
-                  <div key={req.request_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900 rounded-2xl border border-slate-800">
-                    <div className="flex items-center space-x-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-amber-950 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30 shrink-0">
-                        {req.username.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-slate-100 block truncate">{req.username}</span>
-                        <span className="text-[11px] text-slate-500 block truncate">{req.email}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 shrink-0">
-                      <button
-                        onClick={() => handleRespondFriendRequest(req.request_id, 'reject')}
-                        className="px-3 py-1.5 bg-slate-850 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700 font-bold rounded-xl text-xs transition-all"
-                      >
-                        Rechazar
-                      </button>
-                      <button
-                        onClick={() => handleRespondFriendRequest(req.request_id, 'accept')}
-                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow transition-all"
-                      >
-                        Aceptar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
 
           {/* BUSCADOR DE ENTRENADORES */}
           <form onSubmit={handleSearch} className="flex gap-2 max-w-xl w-full">

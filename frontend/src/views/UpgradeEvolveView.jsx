@@ -674,7 +674,7 @@ export default function UpgradeEvolveView({
             { id: 'todas', label: 'Todas' },
             { id: 'evolucionables', label: 'Listas para Evolucionar' },
             { id: 'subir_nivel', label: 'Pueden Subir Nivel' },
-            { id: 'repetidas', label: 'Repetidas (x2+)' },
+            { id: 'repetidas', label: 'Repetidas' },
             { id: 'heridas', label: 'Heridas / Debilitadas' }
           ].map(chip => (
             <button
