@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useDebounce } from '../hooks/useDebounce';
 import { showAlert } from '../utils/gameAlert';
 import confetti from 'canvas-confetti';
 import { 
@@ -20,7 +21,9 @@ import {
   Coins,
   Diamond,
   Package,
-  Filter
+  Filter,
+  X,
+  Loader2
 } from 'lucide-react';
 import TradeProposalModal from './TradeProposalModal';
 import { trackEvent } from '../utils/analytics';
@@ -45,8 +48,11 @@ export default function UpgradeEvolveView({
   const [prisms, setPrisms] = useState({ prisma_evolucion: 0, prisma_maestro: 0 });
   const [albumCards, setAlbumCards] = useState([]);
 
-  // Búsqueda y filtros del álbum inferior y selector superior
+  // Búsqueda y filtros del álbum inferior y selector superior (con debounce)
   const [speciesFilter, setSpeciesFilter] = useState('');
+  const debouncedSpeciesFilter = useDebounce(speciesFilter, 300);
+  const [albumSearch, setAlbumSearch] = useState('');
+  const debouncedAlbumSearch = useDebounce(albumSearch, 300);
   const [statusFilter, setStatusFilter] = useState('todas'); // 'todas' | 'evolucionables' | 'subir_nivel' | 'repetidas' | 'heridas'
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [sortBy, setSortBy] = useState('pokedex'); // 'pokedex' | 'level' | 'copies'
@@ -113,17 +119,24 @@ export default function UpgradeEvolveView({
   // Lista rápida de especies para la barra superior
   const ownedSpeciesList = useMemo(() => {
     const list = Array.from(speciesStatsMap.values());
-    const q = speciesFilter.trim().toLowerCase().replace('#', '');
+    const q = debouncedSpeciesFilter.trim().toLowerCase().replace('#', '');
     if (!q) return list;
-    return list.filter(s => s.name.toLowerCase().includes(q) || s.id.toString().includes(q));
-  }, [speciesStatsMap, speciesFilter]);
+    return list.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.id.toString().includes(q) ||
+      (Array.isArray(s.types) && s.types.some(t => t.toLowerCase().includes(q)))
+    );
+  }, [speciesStatsMap, debouncedSpeciesFilter]);
 
   // Todas las cartas filtradas para la cuadrícula inferior
   const filteredAlbumCards = useMemo(() => {
-    const q = speciesFilter.trim().toLowerCase().replace('#', '');
+    const q = debouncedAlbumSearch.trim().toLowerCase().replace('#', '');
     const filtered = albumCards.filter(card => {
       const sp = speciesStatsMap.get(card.card_id);
-      const matchesQuery = !q || card.name.toLowerCase().includes(q) || card.card_id.toString().includes(q);
+      const matchesQuery = !q ||
+        card.name.toLowerCase().includes(q) ||
+        card.card_id.toString().includes(q) ||
+        (Array.isArray(card.types) && card.types.some(t => t.toLowerCase().includes(q)));
       const matchesType = typeFilter === 'Todos' || (card.types && card.types.includes(typeFilter));
 
       let matchesStatus = true;
@@ -152,7 +165,7 @@ export default function UpgradeEvolveView({
       sorted.sort((a, b) => a.card_id - b.card_id || b.level - a.level);
     }
     return sorted;
-  }, [albumCards, speciesStatsMap, speciesFilter, typeFilter, statusFilter, sortBy, prisms]);
+  }, [albumCards, speciesStatsMap, debouncedAlbumSearch, typeFilter, statusFilter, sortBy, prisms]);
 
   const handleUpgradeLevel = async (userCardId) => {
     setActionLoading(true);
@@ -271,36 +284,56 @@ export default function UpgradeEvolveView({
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
-              placeholder="Buscar Pokémon o #007..."
+              placeholder="Buscar Pokémon, #007 o tipo..."
               value={speciesFilter}
               onChange={(e) => setSpeciesFilter(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="w-full pl-8 pr-8 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
+            {speciesFilter !== debouncedSpeciesFilter ? (
+              <Loader2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-cyan-400 animate-spin" />
+            ) : speciesFilter && (
+              <button
+                type="button"
+                onClick={() => setSpeciesFilter('')}
+                title="Limpiar búsqueda"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 p-0.5"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {ownedSpeciesList.map(sp => (
-            <button
-              key={sp.id}
-              onClick={() => setSelectedSpeciesId(sp.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 ${
-                selectedSpeciesId === sp.id
-                  ? 'bg-slate-800 text-cyan-400 border-cyan-500/50 shadow-md'
-                  : 'bg-[#080d1a] hover:bg-slate-900 text-slate-300 border-slate-800'
-              }`}
-            >
-              <span>{sp.name}</span>
-              {sp.count >= 2 && (
-                <span className="text-[10px] font-mono text-emerald-400 font-bold">x{sp.count}</span>
-              )}
-              <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                selectedSpeciesId === sp.id ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/30' : 'bg-slate-900 text-slate-500'
-              }`}>
-                Nv.{sp.maxLevel}
-              </span>
-            </button>
-          ))}
+          {ownedSpeciesList.length === 0 ? (
+            <span className="text-xs text-slate-500 italic py-1">
+              {debouncedSpeciesFilter.trim()
+                ? `Ninguna de tus especies coincide con "${debouncedSpeciesFilter.trim()}".`
+                : 'Aún no tienes cartas en tu colección.'}
+            </span>
+          ) : (
+            ownedSpeciesList.map(sp => (
+              <button
+                key={sp.id}
+                onClick={() => setSelectedSpeciesId(sp.id)}
+                className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 ${
+                  selectedSpeciesId === sp.id
+                    ? 'bg-slate-800 text-cyan-400 border-cyan-500/50 shadow-md'
+                    : 'bg-[#080d1a] hover:bg-slate-900 text-slate-300 border-slate-800'
+                }`}
+              >
+                <span>{sp.name}</span>
+                {sp.count >= 2 && (
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold">x{sp.count}</span>
+                )}
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  selectedSpeciesId === sp.id ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/30' : 'bg-slate-900 text-slate-500'
+                }`}>
+                  Nv.{sp.maxLevel}
+                </span>
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -634,18 +667,42 @@ export default function UpgradeEvolveView({
 
       {/* TODAS MIS CARTAS ABAJO CON BÚSQUEDA Y FILTROS ACCESIBLES */}
       <section className="bg-[#0b1222] rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-xl space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-100 flex items-center space-x-2">
               <Filter size={18} className="text-cyan-400 shrink-0" />
               <span>Todas mis Cartas ({filteredAlbumCards.length} de {albumCards.length})</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Consulta el progreso de todas tus cartas, súbelas de nivel directo o cárgalas en la cadena evolutiva arriba.
+              Busca entre todas tus cartas, consulta su progreso, súbelas de nivel o cárgalas en la cadena evolutiva arriba.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {/* Búsqueda con debounce para Todas mis Cartas */}
+            <div className="relative w-full sm:w-60">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Buscar en mis cartas, #025 o tipo..."
+                value={albumSearch}
+                onChange={(e) => setAlbumSearch(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+              {albumSearch !== debouncedAlbumSearch ? (
+                <Loader2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-cyan-400 animate-spin" />
+              ) : albumSearch && (
+                <button
+                  type="button"
+                  onClick={() => setAlbumSearch('')}
+                  title="Limpiar búsqueda"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 p-0.5"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -692,8 +749,23 @@ export default function UpgradeEvolveView({
         </div>
 
         {filteredAlbumCards.length === 0 ? (
-          <div className="text-center py-10 text-xs text-slate-400">
-            No tienes cartas que coincidan con esos filtros. Prueba limpiar la búsqueda o cambiar el filtro.
+          <div className="text-center py-10 space-y-2.5">
+            <p className="text-xs text-slate-400">
+              No tienes cartas que coincidan con esos filtros.
+            </p>
+            {(albumSearch || typeFilter !== 'Todos' || statusFilter !== 'todas') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAlbumSearch('');
+                  setTypeFilter('Todos');
+                  setStatusFilter('todas');
+                }}
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold"
+              >
+                Limpiar búsqueda y filtros
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">

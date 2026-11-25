@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
@@ -14,7 +14,8 @@ import {
   Check,
   Bell,
   Clock,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Loader2
 } from 'lucide-react';
 import BattleArenaModal from './BattleArenaModal';
 import TradesView from './TradesView';
@@ -56,6 +57,8 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
   const [isEditingTeam, setIsEditingTeam] = useState(false);
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
   const [teamSaveLoading, setTeamSaveLoading] = useState(false);
+  const [teamSearch, setTeamSearch] = useState('');
+  const debouncedTeamSearch = useDebounce(teamSearch, 300);
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 350);
@@ -288,6 +291,23 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
     }
   };
 
+  const openTeamEditor = () => {
+    setSelectedTeamIds(teamCards.map(c => c.user_card_id));
+    setTeamSearch('');
+    setIsEditingTeam(true);
+  };
+
+  const filteredTeamAlbumCards = useMemo(() => {
+    const q = debouncedTeamSearch.trim().toLowerCase().replace('#', '');
+    if (!q) return albumCards;
+    return albumCards.filter((card) => {
+      const matchName = card.name?.toLowerCase().includes(q);
+      const matchId = card.card_id?.toString().includes(q);
+      const matchType = Array.isArray(card.types) && card.types.some(t => t.toLowerCase().includes(q));
+      return matchName || matchId || matchType;
+    });
+  }, [albumCards, debouncedTeamSearch]);
+
   const toggleCardInTeam = (userCardId) => {
     if (selectedTeamIds.includes(userCardId)) {
       setSelectedTeamIds(prev => prev.filter(id => id !== userCardId));
@@ -377,10 +397,7 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
                 </button>
 
                 <button
-                  onClick={() => {
-                    setSelectedTeamIds(teamCards.map(c => c.user_card_id));
-                    setIsEditingTeam(true);
-                  }}
+                  onClick={openTeamEditor}
                   className="px-3.5 py-2 bg-slate-850 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
                 >
                   <Edit3 size={14} />
@@ -396,7 +413,7 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
                   return (
                     <div 
                       key={slotIdx}
-                      onClick={() => setIsEditingTeam(true)}
+                      onClick={openTeamEditor}
                       className="p-5 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900/40 hover:bg-slate-900/70 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[160px] text-center space-y-2"
                     >
                       <UserPlus size={18} className="text-slate-500" />
@@ -606,47 +623,97 @@ export default function FriendsBattlesView({ initialSubTab = 'amigos', onSubTabC
       {/* MODAL CONFIGURAR EQUIPO */}
       {isEditingTeam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-4 sm:p-6 max-w-3xl w-full max-h-[92dvh] flex flex-col justify-between shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-[#0b1222] border border-slate-750 rounded-3xl p-4 sm:p-6 max-w-3xl w-full max-h-[92dvh] flex flex-col justify-between shadow-2xl space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-slate-100 uppercase tracking-wider">Seleccionar Equipo de 3</h3>
-                <p className="text-xs text-slate-400">Elegidos: {selectedTeamIds.length}/3</p>
+                <p className="text-xs text-slate-400">
+                  Elegidos: {selectedTeamIds.length}/3 · Mostrando {filteredTeamAlbumCards.length} de {albumCards.length}
+                </p>
               </div>
               <button onClick={() => setIsEditingTeam(false)} className="text-slate-500 hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[55vh]">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {albumCards.map((card) => {
-                  const isChecked = selectedTeamIds.includes(card.user_card_id);
-                  return (
-                    <div
-                      key={card.user_card_id}
-                      onClick={() => toggleCardInTeam(card.user_card_id)}
-                      className={`p-3 rounded-2xl border text-center transition-all cursor-pointer relative flex flex-col justify-between ${
-                        isChecked 
-                          ? 'bg-slate-900 border-cyan-500 ring-2 ring-cyan-500/30' 
-                          : 'bg-slate-950 hover:bg-slate-900 border-slate-800 opacity-80'
-                      }`}
+            {/* Búsqueda con debounce para elegir Pokémon del equipo */}
+            <div className="relative shrink-0">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, #025 o tipo (Agua, Fuego...)"
+                value={teamSearch}
+                onChange={(e) => setTeamSearch(e.target.value)}
+                className="w-full pl-9 pr-9 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+              {teamSearch !== debouncedTeamSearch ? (
+                <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 animate-spin" />
+              ) : teamSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTeamSearch('')}
+                  title="Limpiar búsqueda"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 p-0.5"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1 space-y-2">
+              {filteredTeamAlbumCards.length === 0 ? (
+                <div className="text-center py-10 space-y-2">
+                  <p className="text-xs text-slate-400">
+                    {albumCards.length === 0
+                      ? 'Todavía no tienes cartas en tu colección.'
+                      : `No se encontraron Pokémon que coincidan con "${debouncedTeamSearch}".`}
+                  </p>
+                  {teamSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setTeamSearch('')}
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold"
                     >
-                      {isChecked && (
-                        <div className="absolute top-2 right-2 bg-cyan-500 text-slate-950 rounded-full p-0.5">
-                          <Check size={12} />
+                      Limpiar búsqueda
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {filteredTeamAlbumCards.map((card) => {
+                    const isChecked = selectedTeamIds.includes(card.user_card_id);
+                    return (
+                      <div
+                        key={card.user_card_id}
+                        onClick={() => toggleCardInTeam(card.user_card_id)}
+                        className={`p-3 rounded-2xl border text-center transition-all cursor-pointer relative flex flex-col justify-between ${
+                          isChecked 
+                            ? 'bg-slate-900 border-cyan-500 ring-2 ring-cyan-500/30' 
+                            : 'bg-slate-950 hover:bg-slate-900 border-slate-800 opacity-85'
+                        }`}
+                      >
+                        {isChecked && (
+                          <div className="absolute top-2 right-2 bg-cyan-500 text-slate-950 rounded-full p-0.5">
+                            <Check size={12} />
+                          </div>
+                        )}
+                        <div className="h-16 flex items-center justify-center">
+                          <img src={card.sprite_url} alt={card.name} className="max-h-full object-contain" />
                         </div>
-                      )}
-                      <div className="h-16 flex items-center justify-center">
-                        <img src={card.sprite_url} alt={card.name} className="max-h-full object-contain" />
+                        <div className="mt-2 pt-1 border-t border-slate-800">
+                          <span className="text-[10px] text-slate-500 font-mono block">
+                            #{card.card_id?.toString().padStart(3, '0')} · Nv.{card.level}
+                          </span>
+                          <h5 className="text-xs font-bold text-slate-200 truncate">{card.name}</h5>
+                          <span className="text-[10px] text-slate-400 font-mono block">
+                            HP {card.current_hp}/{card.max_hp}
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-2 pt-1 border-t border-slate-800">
-                        <span className="text-[10px] text-slate-500 font-mono block">Nv. {card.level}</span>
-                        <h5 className="text-xs font-bold text-slate-200 truncate">{card.name}</h5>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-800 flex items-center justify-end space-x-2">
