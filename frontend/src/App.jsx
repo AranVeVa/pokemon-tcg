@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import confetti from 'canvas-confetti';
 import { useAuth } from './context/AuthContext';
+import { apiRequest } from './api';
+import { showAlert } from './utils/gameAlert';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import LandingView from './views/LandingView';
@@ -12,10 +15,11 @@ import FriendsBattlesView from './views/FriendsBattlesView';
 import AdminPanel from './views/AdminPanel';
 import StripeCheckoutModal from './views/StripeCheckoutModal';
 import GlobalLiveNotifications from './components/GlobalLiveNotifications';
-import { trackPageView } from './utils/analytics';
+import { trackPageView, trackEvent } from './utils/analytics';
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
+  const handledPaymentReturnRef = useRef(false);
   
   // Navigation State: landing, sobres-tienda, pokedex, pase-batalla, amigos-retos, mejorar-evolucionar, super-admin
   const [activeTab, setActiveTab] = useState('sobres-tienda');
@@ -42,6 +46,62 @@ export default function App() {
       trackPageView(`/${pageKey}`, `Pokémon TCG · ${pageKey}`);
     }
   }, [activeTab, showLanding, loading]);
+
+  const refreshUserRef = useRef(refreshUser);
+  useEffect(() => {
+    refreshUserRef.current = refreshUser;
+  }, [refreshUser]);
+
+  // Procesar retorno desde Stripe Checkout (?payment=success&session_id=... o ?payment=cancelled)
+  useEffect(() => {
+    if (loading || handledPaymentReturnRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    if (!paymentStatus) return;
+
+    if (paymentStatus === 'cancelled') {
+      handledPaymentReturnRef.current = true;
+      window.history.replaceState({}, '', '/');
+      showAlert.info('Pago cancelado', 'No se realizó ningún cargo en tu entorno de prueba.');
+      return;
+    }
+
+    if (paymentStatus === 'success') {
+      if (!user) {
+        handledPaymentReturnRef.current = true;
+        window.history.replaceState({}, '', '/');
+        showAlert.warning(
+          'Inicia sesión para ver tu compra',
+          'Tu pago regresó de Stripe, pero no se detectó una sesión activa en este navegador.'
+        );
+        return;
+      }
+
+      const sessionId = params.get('session_id');
+      handledPaymentReturnRef.current = true;
+      window.history.replaceState({}, '', '/');
+
+      if (!sessionId) return;
+
+      apiRequest('/payments/verify-session', 'POST', { sessionId })
+        .then(async (res) => {
+          await refreshUserRef.current();
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+          if (res.productId) {
+            trackEvent('purchase', {
+              product_id: res.productId,
+              value: res.amountMxn,
+              currency: 'MXN'
+            });
+          }
+          showAlert.success('¡Pago Exitoso!', res.message);
+        })
+        .catch((err) => {
+          showAlert.error('Error al verificar el pago', err.message);
+        });
+    }
+  }, [loading, user]);
 
   const navigateToTab = (tab, opts = {}) => {
     if (opts.shopSubTab) setShopSubTab(opts.shopSubTab);
